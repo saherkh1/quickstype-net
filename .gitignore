@@ -1,0 +1,46 @@
+## .NET / Visual Studio / Rider
+bin/
+obj/
+out/
+publish/
+*.user
+*.suo
+.vs/
+.vscode/
+.idea/
+*.userprefs
+
+## NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## Build outputs
+*.app/
+*.dmg
+*.pkg
+*.exe
+*.msi
+*.zip
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Logs
+*.log
+logs/
+
+## Local config / secrets
+*.local.json
+*.local
+appsettings.Development.json
+
+## Models (large, downloaded at runtime)
+models/
+*.bin
+*.mlmodelc/

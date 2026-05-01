@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>QuickSType.Platform.Mac</RootNamespace>
+    <AssemblyName>QuickSType.Platform.Mac</AssemblyName>
+    <IsAotCompatible>true</IsAotCompatible>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\QuickSType.Core\QuickSType.Core.csproj" />
+  </ItemGroup>
+
+</Project>

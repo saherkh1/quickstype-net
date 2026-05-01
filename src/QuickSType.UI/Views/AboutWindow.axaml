@@ -1,0 +1,15 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="QuickSType.UI.Views.AboutWindow"
+        Title="About QuickSType"
+        Width="380" Height="240"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen">
+  <StackPanel Margin="24" Spacing="12">
+    <TextBlock Text="QuickSType" FontSize="22" FontWeight="SemiBold" />
+    <TextBlock Text="Version 0.1.0" Opacity="0.7" />
+    <TextBlock Text="Push-to-talk voice dictation for macOS and Windows." TextWrapping="Wrap" />
+    <TextBlock Text="Local Whisper transcription via whisper.cpp. No cloud." TextWrapping="Wrap" Opacity="0.8" />
+    <TextBlock Text="© 2026 Saher Khoury — MIT License" Opacity="0.6" FontSize="11" />
+  </StackPanel>
+</Window>

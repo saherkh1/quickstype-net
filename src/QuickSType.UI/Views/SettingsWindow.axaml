@@ -1,0 +1,116 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:QuickSType.UI.ViewModels"
+        xmlns:transcribe="using:QuickSType.Core.Transcribe"
+        xmlns:audio="using:QuickSType.Core.Audio"
+        x:Class="QuickSType.UI.Views.SettingsWindow"
+        x:DataType="vm:SettingsViewModel"
+        Title="QuickSType — Settings"
+        Width="640" Height="720"
+        WindowStartupLocation="CenterScreen"
+        CanResize="True">
+
+  <ScrollViewer Padding="24">
+    <StackPanel Spacing="24">
+
+      <TextBlock Text="QuickSType" FontSize="22" FontWeight="SemiBold" />
+      <TextBlock Text="Push-to-talk voice dictation, local and private." Opacity="0.7" />
+
+      <Border BorderBrush="{DynamicResource SystemAccentColor}" BorderThickness="0,0,0,1" />
+
+      <!-- Hotkey -->
+      <StackPanel Spacing="6">
+        <TextBlock Text="Hotkey" FontWeight="SemiBold" />
+        <TextBlock Text="Hold this key to record. Release to transcribe and paste." Opacity="0.7" FontSize="12" />
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <Button Content="{Binding HotkeyDisplay}" Command="{Binding CaptureHotkeyCommand}" MinWidth="180" />
+          <TextBlock Text="Click to rebind" Opacity="0.6" VerticalAlignment="Center" />
+        </StackPanel>
+      </StackPanel>
+
+      <!-- Model -->
+      <StackPanel Spacing="6" Name="ModelsSection">
+        <TextBlock Text="Whisper model" FontWeight="SemiBold" />
+        <ComboBox ItemsSource="{Binding AvailableModels}"
+                  SelectedValue="{Binding SelectedModel}"
+                  SelectedValueBinding="{Binding Id}"
+                  HorizontalAlignment="Stretch">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="transcribe:ModelInfo">
+              <StackPanel>
+                <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding Description}" Opacity="0.7" FontSize="12" />
+              </StackPanel>
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <Button Content="Save selection" Command="{Binding SaveModelCommand}" />
+          <Button Content="Download model" Command="{Binding DownloadSelectedModelCommand}" />
+        </StackPanel>
+        <ProgressBar Value="{Binding ModelDownloadPercent}" Maximum="100" Height="6" />
+        <TextBlock Text="{Binding ModelDownloadStatus}" FontSize="11" Opacity="0.7" />
+      </StackPanel>
+
+      <!-- Languages -->
+      <StackPanel Spacing="6" Name="LanguagesSection">
+        <TextBlock Text="Languages" FontWeight="SemiBold" />
+        <TextBlock Text="Toggle which languages appear in the tray menu. The active one is what Whisper transcribes to." Opacity="0.7" FontSize="12" />
+        <CheckBox Content="Auto-detect language each utterance" IsChecked="{Binding AutoLanguage}"
+                  Command="{Binding ToggleAutoLanguageCommand}" />
+        <ItemsControl ItemsSource="{Binding AvailableLanguages}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:LanguageRow">
+              <CheckBox Content="{Binding Label}" IsChecked="{Binding IsEnabled}" Margin="0,2" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+
+      <!-- Audio device -->
+      <StackPanel Spacing="6">
+        <TextBlock Text="Microphone" FontWeight="SemiBold" />
+        <ComboBox ItemsSource="{Binding AudioDevices}"
+                  SelectedValue="{Binding SelectedAudioDevice}"
+                  SelectedValueBinding="{Binding Name}"
+                  HorizontalAlignment="Stretch">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="audio:AudioDeviceInfo">
+              <TextBlock Text="{Binding Name}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <Button Content="Save device" Command="{Binding SaveAudioDeviceCommand}" />
+      </StackPanel>
+
+      <!-- Backend -->
+      <StackPanel Spacing="6">
+        <TextBlock Text="Transcription backend" FontWeight="SemiBold" />
+        <ComboBox ItemsSource="{Binding Backends}"
+                  SelectedItem="{Binding TranscriptionBackend}" HorizontalAlignment="Stretch" />
+        <Button Content="Save backend" Command="{Binding SaveBackendCommand}" />
+        <TextBlock Text="auto picks the fastest available (Metal on Mac, CUDA on Windows)." FontSize="11" Opacity="0.7" />
+      </StackPanel>
+
+      <!-- General -->
+      <StackPanel Spacing="6">
+        <TextBlock Text="General" FontWeight="SemiBold" />
+        <CheckBox Content="Show transcription notifications" IsChecked="{Binding ShowNotifications}"
+                  Command="{Binding ToggleNotificationsCommand}" />
+        <CheckBox Content="Start at login" IsChecked="{Binding StartAtLogin}"
+                  Command="{Binding ToggleStartAtLoginCommand}" />
+      </StackPanel>
+
+      <!-- Test -->
+      <StackPanel Spacing="6">
+        <TextBlock Text="Test transcription" FontWeight="SemiBold" />
+        <Button Content="Record 3 s and transcribe" Command="{Binding TestTranscriptionCommand}"
+                IsEnabled="{Binding !IsTesting}" />
+        <Border Background="{DynamicResource SystemAltLowColor}" Padding="12" CornerRadius="4">
+          <TextBlock Text="{Binding TestTranscriptionResult}" TextWrapping="Wrap" />
+        </Border>
+      </StackPanel>
+
+    </StackPanel>
+  </ScrollViewer>
+</Window>
