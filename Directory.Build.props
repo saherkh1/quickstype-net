@@ -10,9 +10,9 @@
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <Deterministic>true</Deterministic>
     <Version>0.1.0</Version>
-    <Authors>Saher Khoury</Authors>
+    <Authors>Saher Khateeb</Authors>
     <Product>QuickSType</Product>
-    <Copyright>Copyright (c) 2026 Saher Khoury</Copyright>
+    <Copyright>Copyright (c) 2026 Saher Khateeb</Copyright>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">

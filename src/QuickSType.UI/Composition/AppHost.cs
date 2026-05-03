@@ -104,6 +104,8 @@ public sealed class AppHost : IDisposable
         return new AppHost(configStore, config, audio, transcriber, paste, notify, permissions, autoLaunch, hotkey, engine, lf, downloader);
     }
 
+    public event Action<AppConfig>? ConfigChanged;
+
     public Task StartAsync()
     {
         _ = Hotkey.RunAsync();
@@ -115,6 +117,8 @@ public sealed class AppHost : IDisposable
         Config = cfg;
         Engine.UpdateConfig(cfg);
         Hotkey.SetHotkey(cfg.Hotkey);
+        try { ConfigChanged?.Invoke(cfg); }
+        catch { /* swallow handler errors */ }
     }
 
     public void Dispose()

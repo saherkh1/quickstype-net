@@ -75,4 +75,4 @@ In active development. See `docs/ARCHITECTURE.md` for the design and phasing.
 
 ## License
 
-MIT
+MIT — © 2026 Saher Khateeb

@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
@@ -16,11 +17,13 @@ public sealed class TrayService
     private NativeMenu? _menu;
     private NativeMenuItem? _stateItem;
     private NativeMenuItem? _languageRoot;
+    private MainWindow? _mainWindow;
 
     public TrayService(AppHost host)
     {
         _host = host;
         _host.Engine.StateChanged += OnStateChanged;
+        _host.ConfigChanged += _ => Dispatcher.UIThread.Post(RebuildLanguageMenu);
     }
 
     public void Install(Application app)
@@ -46,8 +49,8 @@ public sealed class TrayService
         menu.Add(_stateItem);
         menu.Add(new NativeMenuItemSeparator());
 
-        var settings = new NativeMenuItem("Settings…");
-        settings.Click += (_, _) => ShowSettings();
+        var settings = new NativeMenuItem("Open QuickSType…");
+        settings.Click += (_, _) => ShowMain(MainTab.General);
         menu.Add(settings);
 
         menu.Add(new NativeMenuItemSeparator());
@@ -57,8 +60,12 @@ public sealed class TrayService
 
         menu.Add(new NativeMenuItemSeparator());
 
+        var models = new NativeMenuItem("Models…");
+        models.Click += (_, _) => ShowMain(MainTab.Models);
+        menu.Add(models);
+
         var about = new NativeMenuItem("About QuickSType");
-        about.Click += (_, _) => ShowAbout();
+        about.Click += (_, _) => ShowMain(MainTab.About);
         menu.Add(about);
 
         var quit = new NativeMenuItem("Quit");
@@ -82,7 +89,6 @@ public sealed class TrayService
         {
             var cfg = _host.Config.WithAutoLanguage();
             _host.UpdateConfig(cfg);
-            RebuildLanguageMenu();
         };
         sub.Add(auto);
         sub.Add(new NativeMenuItemSeparator());
@@ -98,14 +104,13 @@ public sealed class TrayService
             {
                 var cfg = _host.Config.WithLanguage(capturedCode);
                 _host.UpdateConfig(cfg);
-                RebuildLanguageMenu();
             };
             sub.Add(item);
         }
 
         sub.Add(new NativeMenuItemSeparator());
         var manage = new NativeMenuItem("Manage languages…");
-        manage.Click += (_, _) => ShowSettings(focusLanguages: true);
+        manage.Click += (_, _) => ShowMain(MainTab.Languages);
         sub.Add(manage);
 
         return sub;
@@ -137,35 +142,24 @@ public sealed class TrayService
         });
     }
 
-    private static SettingsWindow? _settingsWindow;
-    private void ShowSettings(bool focusLanguages = false)
+    private void ShowMain(MainTab tab)
     {
         Dispatcher.UIThread.Post(() =>
         {
-            if (_settingsWindow is null || !_settingsWindow.IsVisible)
+            if (_mainWindow is null)
             {
-                _settingsWindow = new SettingsWindow(_host)
-                {
-                    DataContext = new ViewModels.SettingsViewModel(_host),
-                };
-                _settingsWindow.Closed += (_, _) =>
-                {
-                    _settingsWindow = null;
-                    RebuildLanguageMenu();
-                };
+                _mainWindow = new MainWindow(_host);
+                _mainWindow.Closed += (_, _) => _mainWindow = null;
             }
-            _settingsWindow.Show();
-            _settingsWindow.Activate();
-            if (focusLanguages) _settingsWindow.FocusLanguages();
-        });
-    }
 
-    private void ShowAbout()
-    {
-        Dispatcher.UIThread.Post(() =>
-        {
-            var about = new AboutWindow();
-            about.Show();
+            if (!_mainWindow.IsVisible) _mainWindow.Show();
+            if (_mainWindow.WindowState == WindowState.Minimized) _mainWindow.WindowState = WindowState.Normal;
+            _mainWindow.NavigateTo(tab);
+
+            _mainWindow.Topmost = true;
+            _mainWindow.Activate();
+            _mainWindow.Topmost = false;
+            _mainWindow.Focus();
         });
     }
 
@@ -173,7 +167,7 @@ public sealed class TrayService
     {
         Dispatcher.UIThread.Post(() =>
         {
-            if (Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
                 desktop.Shutdown();
             }

@@ -1,0 +1,199 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:QuickSType.UI.ViewModels"
+        xmlns:transcribe="using:QuickSType.Core.Transcribe"
+        xmlns:audio="using:QuickSType.Core.Audio"
+        x:Class="QuickSType.UI.Views.MainWindow"
+        x:DataType="vm:SettingsViewModel"
+        Title="QuickSType"
+        Width="720" Height="640"
+        MinWidth="600" MinHeight="500"
+        WindowStartupLocation="CenterScreen">
+
+  <Window.Styles>
+    <Style Selector="TabItem">
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="MinWidth" Value="120" />
+      <Setter Property="Padding" Value="20,8" />
+      <Setter Property="FontSize" Value="14" />
+    </Style>
+    <Style Selector="TextBlock.h1">
+      <Setter Property="FontSize" Value="20" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Margin" Value="0,0,0,4" />
+    </Style>
+    <Style Selector="TextBlock.h2">
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Margin" Value="0,12,0,4" />
+    </Style>
+    <Style Selector="TextBlock.muted">
+      <Setter Property="Opacity" Value="0.65" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+  </Window.Styles>
+
+  <TabControl Name="MainTabs" TabStripPlacement="Top" Padding="0">
+
+    <TabItem Header="General" Name="TabGeneral">
+      <ScrollViewer Padding="32,24">
+        <StackPanel Spacing="20" MaxWidth="560" HorizontalAlignment="Stretch">
+
+          <TextBlock Classes="h1" Text="General" />
+          <TextBlock Classes="muted" Text="Hotkey, microphone, transcription engine, and startup behaviour." />
+
+          <StackPanel Spacing="6">
+            <TextBlock Classes="h2" Text="Push-to-talk hotkey" />
+            <TextBlock Classes="muted" Text="Hold this key to record. Release to transcribe and paste at the cursor." />
+            <StackPanel Orientation="Horizontal" Spacing="12">
+              <Button Content="{Binding HotkeyDisplay}" Command="{Binding CaptureHotkeyCommand}" MinWidth="200" />
+              <TextBlock Text="Click to rebind" Opacity="0.6" VerticalAlignment="Center" />
+            </StackPanel>
+          </StackPanel>
+
+          <StackPanel Spacing="6">
+            <TextBlock Classes="h2" Text="Microphone" />
+            <ComboBox ItemsSource="{Binding AudioDevices}"
+                      SelectedValue="{Binding SelectedAudioDevice}"
+                      SelectedValueBinding="{Binding Name}"
+                      HorizontalAlignment="Stretch">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="audio:AudioDeviceInfo">
+                  <TextBlock Text="{Binding Name}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <Button Content="Save device" Command="{Binding SaveAudioDeviceCommand}" HorizontalAlignment="Left" />
+          </StackPanel>
+
+          <StackPanel Spacing="6">
+            <TextBlock Classes="h2" Text="Transcription backend" />
+            <ComboBox ItemsSource="{Binding Backends}"
+                      SelectedItem="{Binding TranscriptionBackend}" HorizontalAlignment="Stretch" />
+            <Button Content="Save backend" Command="{Binding SaveBackendCommand}" HorizontalAlignment="Left" />
+            <TextBlock Classes="muted" Text="auto picks the fastest available (Metal on Mac, CUDA on Windows)." />
+          </StackPanel>
+
+          <StackPanel Spacing="6">
+            <TextBlock Classes="h2" Text="Startup" />
+            <CheckBox Content="Show transcription notifications" IsChecked="{Binding ShowNotifications}"
+                      Command="{Binding ToggleNotificationsCommand}" />
+            <CheckBox Content="Start at login" IsChecked="{Binding StartAtLogin}"
+                      Command="{Binding ToggleStartAtLoginCommand}" />
+          </StackPanel>
+
+          <StackPanel Spacing="6">
+            <TextBlock Classes="h2" Text="Test transcription" />
+            <Button Content="Record 3 s and transcribe" Command="{Binding TestTranscriptionCommand}"
+                    IsEnabled="{Binding !IsTesting}" HorizontalAlignment="Left" />
+            <Border Background="{DynamicResource SystemAltLowColor}" Padding="12" CornerRadius="4" MinHeight="48">
+              <TextBlock Text="{Binding TestTranscriptionResult}" TextWrapping="Wrap" />
+            </Border>
+          </StackPanel>
+
+        </StackPanel>
+      </ScrollViewer>
+    </TabItem>
+
+    <TabItem Header="Languages" Name="TabLanguages">
+      <ScrollViewer Padding="32,24">
+        <StackPanel Spacing="16" MaxWidth="560">
+
+          <TextBlock Classes="h1" Text="Languages" />
+          <TextBlock Classes="muted" Text="Toggle which languages appear in the tray quick-switch menu. The active language is what Whisper transcribes to." />
+
+          <Border BorderBrush="{DynamicResource SystemBaseLowColor}" BorderThickness="1" CornerRadius="6" Padding="16,12">
+            <CheckBox Content="Auto-detect language each utterance"
+                      IsChecked="{Binding AutoLanguage}"
+                      Command="{Binding ToggleAutoLanguageCommand}"
+                      FontWeight="SemiBold" />
+          </Border>
+
+          <TextBlock Classes="h2" Text="Enabled languages" />
+          <TextBlock Classes="muted" Text="Checked languages appear in the tray menu. The first checked language is the default; switch the active one from the tray." />
+
+          <ItemsControl ItemsSource="{Binding AvailableLanguages}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:LanguageRow">
+                <CheckBox Content="{Binding Label}" IsChecked="{Binding IsEnabled}" Margin="0,2" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+        </StackPanel>
+      </ScrollViewer>
+    </TabItem>
+
+    <TabItem Header="Models" Name="TabModels">
+      <ScrollViewer Padding="32,24">
+        <StackPanel Spacing="16" MaxWidth="560">
+
+          <TextBlock Classes="h1" Text="Whisper models" />
+          <TextBlock Classes="muted" Text="QuickSType uses whisper.cpp ggml models. Download a model before recording. The Q5 turbo variant is a good balance of size, speed, and accuracy." />
+
+          <ComboBox ItemsSource="{Binding AvailableModels}"
+                    SelectedValue="{Binding SelectedModel}"
+                    SelectedValueBinding="{Binding Id}"
+                    HorizontalAlignment="Stretch">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="transcribe:ModelInfo">
+                <StackPanel>
+                  <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                  <TextBlock Text="{Binding Description}" Opacity="0.7" FontSize="12" />
+                </StackPanel>
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+
+          <StackPanel Orientation="Horizontal" Spacing="12">
+            <Button Content="Save selection" Command="{Binding SaveModelCommand}" />
+            <Button Content="Download" Command="{Binding DownloadSelectedModelCommand}" Classes="accent" />
+          </StackPanel>
+
+          <ProgressBar Value="{Binding ModelDownloadPercent}" Maximum="100" Height="6" />
+          <TextBlock Text="{Binding ModelDownloadStatus}" FontSize="11" Opacity="0.7" />
+
+          <Border BorderBrush="{DynamicResource SystemBaseLowColor}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,16,0,0">
+            <StackPanel Spacing="4">
+              <TextBlock Text="Currently selected" FontWeight="SemiBold" />
+              <TextBlock Text="{Binding SelectedModel}" Opacity="0.8" />
+            </StackPanel>
+          </Border>
+
+        </StackPanel>
+      </ScrollViewer>
+    </TabItem>
+
+    <TabItem Header="About" Name="TabAbout">
+      <ScrollViewer Padding="32,32">
+        <StackPanel Spacing="14" MaxWidth="520" HorizontalAlignment="Center">
+
+          <TextBlock Text="QuickSType" FontSize="28" FontWeight="SemiBold" HorizontalAlignment="Center" />
+          <TextBlock Text="Version 0.1.0" HorizontalAlignment="Center" Opacity="0.7" />
+
+          <Border Height="1" Background="{DynamicResource SystemBaseLowColor}" Margin="0,8" />
+
+          <TextBlock TextWrapping="Wrap" HorizontalAlignment="Center" TextAlignment="Center"
+                     Text="Push-to-talk voice dictation for macOS and Windows. Hold a hotkey, speak, release — text appears at your cursor." />
+
+          <TextBlock TextWrapping="Wrap" HorizontalAlignment="Center" TextAlignment="Center" Opacity="0.8"
+                     Text="100% local. Transcription via whisper.cpp through Whisper.net. No cloud, no telemetry." />
+
+          <Border Height="1" Background="{DynamicResource SystemBaseLowColor}" Margin="0,8" />
+
+          <TextBlock HorizontalAlignment="Center" Opacity="0.6" FontSize="11"
+                     Text="© 2026 Saher Khateeb — MIT License" />
+
+          <StackPanel Orientation="Horizontal" Spacing="16" HorizontalAlignment="Center" Margin="0,12,0,0">
+            <Button Name="OpenLogsButton" Content="Open log folder" />
+            <Button Name="OpenConfigButton" Content="Open config folder" />
+          </StackPanel>
+
+        </StackPanel>
+      </ScrollViewer>
+    </TabItem>
+
+  </TabControl>
+</Window>

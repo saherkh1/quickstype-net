@@ -1,10 +1,8 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
-using Microsoft.Extensions.Logging;
 using QuickSType.UI.Composition;
 using QuickSType.UI.Tray;
-using QuickSType.UI.Views;
 
 namespace QuickSType.UI;
 
@@ -28,12 +26,6 @@ public partial class App : Application
 
             desktop.ShutdownMode = Avalonia.Controls.ShutdownMode.OnExplicitShutdown;
             desktop.MainWindow = null;
-
-            if (!Host.ConfigStore.PathExists())
-            {
-                var wizard = new WizardWindow(Host);
-                wizard.Show();
-            }
 
             _ = Host.StartAsync();
         }
