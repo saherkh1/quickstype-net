@@ -102,22 +102,27 @@
         <StackPanel Spacing="16" MaxWidth="560">
 
           <TextBlock Classes="h1" Text="Languages" />
-          <TextBlock Classes="muted" Text="Toggle which languages appear in the tray quick-switch menu. The active language is what Whisper transcribes to." />
+          <TextBlock Classes="muted" Text="Pick the language Whisper should transcribe to. The same selection appears in the tray menu's Language submenu." />
 
           <Border BorderBrush="{DynamicResource SystemBaseLowColor}" BorderThickness="1" CornerRadius="6" Padding="16,12">
-            <CheckBox Content="Auto-detect language each utterance"
-                      IsChecked="{Binding AutoLanguage}"
-                      Command="{Binding ToggleAutoLanguageCommand}"
-                      FontWeight="SemiBold" />
+            <RadioButton Name="AutoDetectRadio"
+                         Content="Auto-detect language each utterance"
+                         GroupName="QsLang"
+                         FontWeight="SemiBold"
+                         Tag="__auto"
+                         Click="LanguageRadio_Click" />
           </Border>
 
-          <TextBlock Classes="h2" Text="Enabled languages" />
-          <TextBlock Classes="muted" Text="Checked languages appear in the tray menu. The first checked language is the default; switch the active one from the tray." />
+          <TextBlock Classes="h2" Text="Specific language" />
 
-          <ItemsControl ItemsSource="{Binding AvailableLanguages}">
+          <ItemsControl ItemsSource="{Binding AvailableLanguages}" Name="LanguageList">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:LanguageRow">
-                <CheckBox Content="{Binding Label}" IsChecked="{Binding IsEnabled}" Margin="0,2" />
+                <RadioButton Content="{Binding Label}"
+                             GroupName="QsLang"
+                             Margin="0,2"
+                             Tag="{Binding Code}"
+                             Click="LanguageRadio_Click" />
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>

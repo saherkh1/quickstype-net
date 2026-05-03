@@ -55,14 +55,12 @@ public sealed class Transcriber : IDisposable
             .WithProbabilities()
             .WithThreads(Math.Max(2, Environment.ProcessorCount / 2));
 
-        if (!config.AutoLanguage && !string.IsNullOrEmpty(config.ActiveLanguage))
-        {
-            builder = builder.WithLanguage(config.ActiveLanguage);
-        }
-        else
-        {
-            builder = builder.WithLanguageDetection();
-        }
+        var lang = config.ActiveLanguage;
+        var validLang = !string.IsNullOrWhiteSpace(lang)
+            && QuickSType.Core.Languages.Find(lang) is not null;
+        builder = (config.AutoLanguage || !validLang)
+            ? builder.WithLanguageDetection()
+            : builder.WithLanguage(lang);
 
         var processor = builder.Build();
 

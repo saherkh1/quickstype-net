@@ -13,13 +13,15 @@ namespace QuickSType.UI.ViewModels;
 
 public sealed partial class SettingsViewModel : ObservableObject
 {
+    public const string AutoLanguageCode = "__auto";
+
     private readonly AppHost _host;
+    private bool _suppressLanguageSync;
 
     [ObservableProperty] private string _hotkeyDisplay;
     [ObservableProperty] private bool _isCapturingHotkey;
     [ObservableProperty] private string _selectedModel;
-    [ObservableProperty] private bool _autoLanguage;
-    [ObservableProperty] private string _activeLanguage;
+    [ObservableProperty] private string _selectedLanguageCode = AutoLanguageCode;
     [ObservableProperty] private string? _selectedAudioDevice;
     [ObservableProperty] private string _transcriptionBackend;
     [ObservableProperty] private bool _showNotifications;
@@ -40,18 +42,40 @@ public sealed partial class SettingsViewModel : ObservableObject
         var c = host.Config;
         _selectedModel = c.Model;
         _hotkeyDisplay = HotkeyService.Format(HotkeyService.ParseKey(c.Hotkey));
-        _autoLanguage = c.AutoLanguage;
-        _activeLanguage = c.ActiveLanguage;
         _selectedAudioDevice = c.SelectedAudioDevice;
         _transcriptionBackend = c.TranscriptionBackend;
         _showNotifications = c.ShowNotifications;
         _startAtLogin = host.AutoLaunch.IsEnabled();
+        _selectedLanguageCode = ResolveLanguageCode(c);
 
         AudioDevices = new ObservableCollection<AudioDeviceInfo>(host.Audio.ListInputDevices());
         AvailableLanguages = new ObservableCollection<LanguageRow>(
-            Languages.Common.Select(l => new LanguageRow(l.Code, l.DisplayName, l.NativeName, c.Languages.Contains(l.Code))));
+            Languages.Common.Select(l => new LanguageRow(l.Code, l.DisplayName, l.NativeName)));
 
-        foreach (var row in AvailableLanguages) row.PropertyChanged += (_, _) => SaveLanguages();
+        host.ConfigChanged += OnConfigChanged;
+    }
+
+    private static string ResolveLanguageCode(AppConfig c) =>
+        c.AutoLanguage ? AutoLanguageCode : c.ActiveLanguage;
+
+    private void OnConfigChanged(AppConfig cfg)
+    {
+        _suppressLanguageSync = true;
+        try { SelectedLanguageCode = ResolveLanguageCode(cfg); }
+        finally { _suppressLanguageSync = false; }
+    }
+
+    partial void OnSelectedLanguageCodeChanged(string value)
+    {
+        if (_suppressLanguageSync) return;
+        if (value == AutoLanguageCode)
+        {
+            _host.UpdateConfig(_host.Config.WithAutoLanguage());
+        }
+        else
+        {
+            _host.UpdateConfig(_host.Config.WithLanguage(value));
+        }
     }
 
     [RelayCommand]
@@ -104,21 +128,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         {
             ModelDownloadStatus = $"Error: {ex.Message}";
         }
-    }
-
-    [RelayCommand]
-    private void ToggleAutoLanguage()
-    {
-        AutoLanguage = !AutoLanguage;
-        Save(c => c with { AutoLanguage = AutoLanguage });
-    }
-
-    [RelayCommand]
-    private void SetActiveLanguage(string code)
-    {
-        ActiveLanguage = code;
-        Save(c => c.WithLanguage(code));
-        AutoLanguage = false;
     }
 
     [RelayCommand]
@@ -179,15 +188,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
     }
 
-    private void SaveLanguages()
-    {
-        var enabled = AvailableLanguages.Where(l => l.IsEnabled).Select(l => l.Code).ToList();
-        if (enabled.Count == 0) enabled.Add("en");
-        var active = enabled.Contains(ActiveLanguage) ? ActiveLanguage : enabled[0];
-        ActiveLanguage = active;
-        Save(c => c with { Languages = enabled, ActiveLanguage = active });
-    }
-
     private void Save(Func<AppConfig, AppConfig> update)
     {
         var newCfg = update(_host.Config);
@@ -195,21 +195,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     }
 }
 
-public sealed partial class LanguageRow : ObservableObject
+public sealed record LanguageRow(string Code, string DisplayName, string NativeName)
 {
-    public string Code { get; }
-    public string DisplayName { get; }
-    public string NativeName { get; }
-
-    [ObservableProperty] private bool _isEnabled;
-
-    public string Label => $"{NativeName} ({DisplayName})";
-
-    public LanguageRow(string code, string display, string native, bool enabled)
-    {
-        Code = code;
-        DisplayName = display;
-        NativeName = native;
-        _isEnabled = enabled;
-    }
+    public string Label => $"{NativeName}  ({DisplayName})";
 }

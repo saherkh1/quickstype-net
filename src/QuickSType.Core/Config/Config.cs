@@ -34,12 +34,18 @@ public sealed record AppConfig
     [JsonPropertyName("schema_version")]
     public int SchemaVersion { get; init; } = 2;
 
-    public AppConfig WithLanguage(string lang) => this with
+    public AppConfig WithLanguage(string lang)
     {
-        ActiveLanguage = lang,
-        Languages = Languages.Contains(lang) ? Languages : [.. Languages, lang],
-        AutoLanguage = false,
-    };
+        var normalised = (lang ?? string.Empty).Trim().ToLowerInvariant();
+        if (normalised.Length == 0) return this;
+        if (QuickSType.Core.Languages.Find(normalised) is null) return this;
+        return this with
+        {
+            ActiveLanguage = normalised,
+            Languages = Languages.Contains(normalised) ? Languages : [.. Languages, normalised],
+            AutoLanguage = false,
+        };
+    }
 
     public AppConfig WithAutoLanguage() => this with { AutoLanguage = true };
 }
