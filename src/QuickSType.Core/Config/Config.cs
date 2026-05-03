@@ -48,4 +48,36 @@ public sealed record AppConfig
     }
 
     public AppConfig WithAutoLanguage() => this with { AutoLanguage = true };
+
+    public AppConfig WithAutoLanguage(bool enabled) => this with { AutoLanguage = enabled };
+
+    /// <summary>
+    /// Replace the enabled-languages list. Input is normalised (trim, lowercase),
+    /// deduplicated, and filtered to known codes in <see cref="QuickSType.Core.Languages.Common"/>.
+    /// If the resulting list is empty, falls back to ["en"]. If the current
+    /// <see cref="ActiveLanguage"/> is no longer in the list, shifts to the first item.
+    /// </summary>
+    public AppConfig WithEnabledLanguages(IEnumerable<string> codes)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var ordered = new List<string>();
+        foreach (var raw in codes ?? Array.Empty<string>())
+        {
+            var n = (raw ?? string.Empty).Trim().ToLowerInvariant();
+            if (n.Length == 0) continue;
+            if (QuickSType.Core.Languages.Find(n) is null) continue;
+            if (seen.Add(n)) ordered.Add(n);
+        }
+        if (ordered.Count == 0) ordered.Add("en");
+
+        var newActive = ordered.Contains(ActiveLanguage, StringComparer.OrdinalIgnoreCase)
+            ? ActiveLanguage
+            : ordered[0];
+
+        return this with
+        {
+            Languages = ordered,
+            ActiveLanguage = newActive,
+        };
+    }
 }

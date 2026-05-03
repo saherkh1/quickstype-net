@@ -1,10 +1,6 @@
-using System.ComponentModel;
 using System.Diagnostics;
 using Avalonia.Controls;
-using Avalonia.Interactivity;
-using Avalonia.LogicalTree;
 using Avalonia.Markup.Xaml;
-using Avalonia.Threading;
 using QuickSType.Core.Config;
 using QuickSType.Core.Transcribe;
 using QuickSType.UI.Composition;
@@ -14,9 +10,6 @@ namespace QuickSType.UI.Views;
 
 public partial class MainWindow : Window
 {
-    private readonly AppHost? _host;
-    private SettingsViewModel? _vm;
-
     public MainWindow()
     {
         InitializeComponent();
@@ -24,12 +17,8 @@ public partial class MainWindow : Window
 
     public MainWindow(AppHost host) : this()
     {
-        _host = host;
-        _vm = new SettingsViewModel(host);
-        DataContext = _vm;
+        DataContext = new SettingsViewModel(host);
         WireButtons();
-        _vm.PropertyChanged += OnVmPropertyChanged;
-        Opened += (_, _) => Dispatcher.UIThread.Post(SyncLanguageRadios);
     }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
@@ -58,44 +47,6 @@ public partial class MainWindow : Window
             MainTab.About => 3,
             _ => 0,
         };
-        if (tab == MainTab.Languages) Dispatcher.UIThread.Post(SyncLanguageRadios);
-    }
-
-    private void LanguageRadio_Click(object? sender, RoutedEventArgs e)
-    {
-        if (_vm is null) return;
-        if (sender is RadioButton rb && rb.Tag is string code && !string.IsNullOrEmpty(code))
-        {
-            _vm.SelectedLanguageCode = code;
-        }
-    }
-
-    private void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == nameof(SettingsViewModel.SelectedLanguageCode))
-        {
-            Dispatcher.UIThread.Post(SyncLanguageRadios);
-        }
-    }
-
-    private void SyncLanguageRadios()
-    {
-        if (_vm is null) return;
-        var active = _vm.SelectedLanguageCode;
-
-        var auto = this.FindControl<RadioButton>("AutoDetectRadio");
-        if (auto is not null) auto.IsChecked = active == SettingsViewModel.AutoLanguageCode;
-
-        var list = this.FindControl<ItemsControl>("LanguageList");
-        if (list is null) return;
-
-        foreach (var radio in list.GetLogicalDescendants().OfType<RadioButton>())
-        {
-            if (radio.Tag is string code)
-            {
-                radio.IsChecked = string.Equals(code, active, StringComparison.OrdinalIgnoreCase);
-            }
-        }
     }
 
     private static void OpenInFinder(string path)

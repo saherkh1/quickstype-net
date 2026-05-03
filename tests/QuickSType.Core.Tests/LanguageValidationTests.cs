@@ -96,4 +96,77 @@ public class LanguageValidationTests
         c2.ActiveLanguage.ShouldBe("en");
         c2.Languages.ShouldBe(new[] { "en" });
     }
+
+    [Fact]
+    public void With_auto_language_bool_false_clears_flag()
+    {
+        var c = new AppConfig { AutoLanguage = true };
+        c.WithAutoLanguage(false).AutoLanguage.ShouldBeFalse();
+        c.WithAutoLanguage(true).AutoLanguage.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void With_enabled_languages_normalises_and_dedupes()
+    {
+        var c = new AppConfig { Languages = new() { "en" }, ActiveLanguage = "en" };
+        var c2 = c.WithEnabledLanguages(new[] { " EN ", "he", "HE", "ja" });
+        c2.Languages.ShouldBe(new[] { "en", "he", "ja" });
+    }
+
+    [Fact]
+    public void With_enabled_languages_filters_unknown()
+    {
+        var c = new AppConfig();
+        var c2 = c.WithEnabledLanguages(new[] { "en", "klingon", "he", "" });
+        c2.Languages.ShouldBe(new[] { "en", "he" });
+    }
+
+    [Fact]
+    public void With_enabled_languages_defaults_to_english_when_empty()
+    {
+        var c = new AppConfig { Languages = new() { "he" }, ActiveLanguage = "he" };
+        var c2 = c.WithEnabledLanguages(new[] { "klingon", "  " });
+        c2.Languages.ShouldBe(new[] { "en" });
+        c2.ActiveLanguage.ShouldBe("en");
+    }
+
+    [Fact]
+    public void With_enabled_languages_keeps_active_if_still_enabled()
+    {
+        var c = new AppConfig { Languages = new() { "en", "he", "ar" }, ActiveLanguage = "he" };
+        var c2 = c.WithEnabledLanguages(new[] { "en", "he", "ja" });
+        c2.ActiveLanguage.ShouldBe("he");
+    }
+
+    [Fact]
+    public void With_enabled_languages_shifts_active_when_removed()
+    {
+        var c = new AppConfig { Languages = new() { "en", "he" }, ActiveLanguage = "he" };
+        var c2 = c.WithEnabledLanguages(new[] { "en", "ja" });
+        c2.ActiveLanguage.ShouldBe("en");
+    }
+
+    [Fact]
+    public void With_enabled_languages_shifts_active_to_first_remaining()
+    {
+        var c = new AppConfig { Languages = new() { "en", "he" }, ActiveLanguage = "en" };
+        var c2 = c.WithEnabledLanguages(new[] { "ja", "es" });
+        c2.ActiveLanguage.ShouldBe("ja");
+    }
+
+    [Fact]
+    public void With_enabled_languages_preserves_order()
+    {
+        var c = new AppConfig();
+        var c2 = c.WithEnabledLanguages(new[] { "ja", "en", "he", "ar" });
+        c2.Languages.ShouldBe(new[] { "ja", "en", "he", "ar" });
+    }
+
+    [Fact]
+    public void With_enabled_languages_preserves_auto_language_flag()
+    {
+        var c = new AppConfig { AutoLanguage = true };
+        var c2 = c.WithEnabledLanguages(new[] { "en", "he" });
+        c2.AutoLanguage.ShouldBeTrue();
+    }
 }

@@ -12,22 +12,24 @@ namespace QuickSType.UI.Tray;
 
 public sealed class TrayService
 {
-    private const string AutoLangKey = "__auto";
-
     private readonly AppHost _host;
     private TrayIcon? _trayIcon;
     private NativeMenu? _menu;
     private NativeMenuItem? _stateItem;
     private NativeMenuItem? _languageRoot;
+    private NativeMenu? _languageSubmenu;
     private NativeMenuItem? _autoLangItem;
-    private readonly Dictionary<string, NativeMenuItem> _langItems = new(StringComparer.OrdinalIgnoreCase);
+    private NativeMenuItem? _openLangSettingsItem;
+    private NativeMenuItemSeparator? _afterAutoSeparator;
+    private NativeMenuItemSeparator? _beforeSettingsSeparator;
+    private readonly Dictionary<string, NativeMenuItem> _allLangItems = new(StringComparer.OrdinalIgnoreCase);
     private MainWindow? _mainWindow;
 
     public TrayService(AppHost host)
     {
         _host = host;
         _host.Engine.StateChanged += OnStateChanged;
-        _host.ConfigChanged += _ => Dispatcher.UIThread.Post(RefreshLanguageMarks);
+        _host.ConfigChanged += _ => Dispatcher.UIThread.Post(OnConfigChanged);
     }
 
     public void Install(Application app)
@@ -59,12 +61,13 @@ public sealed class TrayService
 
         menu.Add(new NativeMenuItemSeparator());
 
-        // Build the Language submenu ONCE — every supported language gets a
-        // permanent item. We only mutate each item's Header (✓/space prefix)
-        // when the active language changes. Replacing NativeMenuItem.Menu at
-        // runtime does NOT reliably propagate to AppKit's NSMenu cache, so we
-        // avoid that pattern entirely.
-        _languageRoot = new NativeMenuItem("Language") { Menu = BuildLanguageMenuOnce() };
+        // Build the Language submenu ONCE. Pre-create a NativeMenuItem for every
+        // supported language and stash them in _allLangItems. The submenu itself
+        // (the same NativeMenu instance) is mutated in place when the enabled
+        // list changes — we never reassign _languageRoot.Menu, since reassignment
+        // doesn't reliably propagate to AppKit's NSMenu cache.
+        BuildLanguageMenuPersistent();
+        _languageRoot = new NativeMenuItem("Language") { Menu = _languageSubmenu };
         menu.Add(_languageRoot);
 
         menu.Add(new NativeMenuItemSeparator());
@@ -84,59 +87,85 @@ public sealed class TrayService
         return menu;
     }
 
-    private NativeMenu BuildLanguageMenuOnce()
+    private void BuildLanguageMenuPersistent()
     {
-        var sub = new NativeMenu();
+        _languageSubmenu = new NativeMenu();
 
-        _autoLangItem = new NativeMenuItem(FormatLangHeader("Auto-detect", _host.Config.AutoLanguage));
+        _autoLangItem = new NativeMenuItem(FormatHeader("Auto-detect", _host.Config.AutoLanguage));
         _autoLangItem.Click += (_, _) =>
         {
-            _host.UpdateConfig(_host.Config.WithAutoLanguage());
+            _host.UpdateConfig(_host.Config.WithAutoLanguage(true));
         };
-        sub.Add(_autoLangItem);
-        sub.Add(new NativeMenuItemSeparator());
 
+        _afterAutoSeparator = new NativeMenuItemSeparator();
+        _beforeSettingsSeparator = new NativeMenuItemSeparator();
+
+        _openLangSettingsItem = new NativeMenuItem("Open settings…");
+        _openLangSettingsItem.Click += (_, _) => ShowMain(MainTab.Languages);
+
+        // Pre-create persistent items for every supported language. They are
+        // not added to the submenu yet — PopulateLanguageItems decides which
+        // ones go in based on _host.Config.Languages.
         foreach (var info in Languages.Common)
         {
             var label = $"{info.NativeName}  ({info.DisplayName})";
-            var checkedNow = !_host.Config.AutoLanguage
-                && string.Equals(info.Code, _host.Config.ActiveLanguage, StringComparison.OrdinalIgnoreCase);
-            var item = new NativeMenuItem(FormatLangHeader(label, checkedNow));
+            var item = new NativeMenuItem(FormatHeader(label, false));
             var capturedCode = info.Code;
             item.Click += (_, _) =>
             {
                 _host.UpdateConfig(_host.Config.WithLanguage(capturedCode));
             };
-            _langItems[info.Code] = item;
-            sub.Add(item);
+            _allLangItems[info.Code] = item;
         }
 
-        sub.Add(new NativeMenuItemSeparator());
-        var manage = new NativeMenuItem("Open settings…");
-        manage.Click += (_, _) => ShowMain(MainTab.Languages);
-        sub.Add(manage);
+        PopulateLanguageItems();
+        RefreshLanguageMarks();
+    }
 
-        return sub;
+    private void PopulateLanguageItems()
+    {
+        if (_languageSubmenu is null) return;
+        _languageSubmenu.Items.Clear();
+        _languageSubmenu.Items.Add(_autoLangItem!);
+        _languageSubmenu.Items.Add(_afterAutoSeparator!);
+        foreach (var code in _host.Config.Languages)
+        {
+            if (_allLangItems.TryGetValue(code, out var item))
+            {
+                _languageSubmenu.Items.Add(item);
+            }
+        }
+        _languageSubmenu.Items.Add(_beforeSettingsSeparator!);
+        _languageSubmenu.Items.Add(_openLangSettingsItem!);
     }
 
     private void RefreshLanguageMarks()
     {
         if (_autoLangItem is not null)
         {
-            _autoLangItem.Header = FormatLangHeader("Auto-detect", _host.Config.AutoLanguage);
+            _autoLangItem.Header = FormatHeader("Auto-detect", _host.Config.AutoLanguage);
         }
-
-        foreach (var (code, item) in _langItems)
+        foreach (var (code, item) in _allLangItems)
         {
             var info = Languages.Find(code);
             var label = info is null ? code : $"{info.NativeName}  ({info.DisplayName})";
             var checkedNow = !_host.Config.AutoLanguage
                 && string.Equals(code, _host.Config.ActiveLanguage, StringComparison.OrdinalIgnoreCase);
-            item.Header = FormatLangHeader(label, checkedNow);
+            item.Header = FormatHeader(label, checkedNow);
         }
     }
 
-    private static string FormatLangHeader(string label, bool isActive) =>
+    private void OnConfigChanged()
+    {
+        // Rebuild membership (enabled-list changed) and refresh check marks
+        // (active or auto-detect changed). PopulateLanguageItems mutates the
+        // SAME NativeMenu instance that's already attached to NSMenu, which
+        // AppKit handles correctly via removeAllItems + addItem.
+        PopulateLanguageItems();
+        RefreshLanguageMarks();
+    }
+
+    private static string FormatHeader(string label, bool isActive) =>
         (isActive ? "✓ " : "   ") + label;
 
     private void OnStateChanged(DictationState state)

@@ -102,27 +102,28 @@
         <StackPanel Spacing="16" MaxWidth="560">
 
           <TextBlock Classes="h1" Text="Languages" />
-          <TextBlock Classes="muted" Text="Pick the language Whisper should transcribe to. The same selection appears in the tray menu's Language submenu." />
+          <TextBlock Classes="muted"
+                     Text="Tick which languages should appear in the tray menu's Language submenu. Switch the active one from the tray." />
 
           <Border BorderBrush="{DynamicResource SystemBaseLowColor}" BorderThickness="1" CornerRadius="6" Padding="16,12">
-            <RadioButton Name="AutoDetectRadio"
-                         Content="Auto-detect language each utterance"
-                         GroupName="QsLang"
-                         FontWeight="SemiBold"
-                         Tag="__auto"
-                         Click="LanguageRadio_Click" />
+            <CheckBox Content="Auto-detect language each utterance"
+                      IsChecked="{Binding AutoLanguage}"
+                      FontWeight="SemiBold" />
           </Border>
 
-          <TextBlock Classes="h2" Text="Specific language" />
+          <Border Background="{DynamicResource SystemAltLowColor}" CornerRadius="6" Padding="12,8">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="Currently active:" FontWeight="SemiBold" />
+              <TextBlock Text="{Binding ActiveLanguageDisplay}" />
+            </StackPanel>
+          </Border>
 
-          <ItemsControl ItemsSource="{Binding AvailableLanguages}" Name="LanguageList">
+          <TextBlock Classes="h2" Text="Show in tray menu" />
+
+          <ItemsControl ItemsSource="{Binding AvailableLanguages}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:LanguageRow">
-                <RadioButton Content="{Binding Label}"
-                             GroupName="QsLang"
-                             Margin="0,2"
-                             Tag="{Binding Code}"
-                             Click="LanguageRadio_Click" />
+                <CheckBox Content="{Binding Label}" IsChecked="{Binding IsEnabled}" Margin="0,2" />
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
