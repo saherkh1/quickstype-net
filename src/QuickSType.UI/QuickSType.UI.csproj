@@ -37,4 +37,12 @@
     <AvaloniaResource Include="Assets\**" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- HARDEN-01: model SHA-256 manifest must travel with the binary. -->
+    <Content Include="..\..\models\manifest.json" Link="models\manifest.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- HARDEN-05: smoke fixture + expected contract for CI smoke-test invocation. -->
+    <Content Include="..\..\tests\fixtures\smoke.wav" Link="tests\fixtures\smoke.wav" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\tests\fixtures\smoke.expected.json" Link="tests\fixtures\smoke.expected.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

@@ -1,0 +1,11 @@
+{
+  "must_contain_lowercase": [
+    "testing"
+  ],
+  "must_not_contain": [
+    "thanks for watching",
+    "subscribe",
+    "please like and subscribe"
+  ],
+  "max_length_chars": 50
+}
