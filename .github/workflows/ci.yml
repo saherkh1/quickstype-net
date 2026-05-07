@@ -1,0 +1,52 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  actions: write   # for actions/cache@v4
+
+jobs:
+  publish:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            rid: osx-arm64
+            binary: src/QuickSType.UI/bin/Release/net10.0/osx-arm64/publish/QuickSType
+          - os: macos-13
+            rid: osx-x64
+            binary: src/QuickSType.UI/bin/Release/net10.0/osx-x64/publish/QuickSType
+          - os: windows-2022
+            rid: win-x64
+            binary: src/QuickSType.UI/bin/Release/net10.0/win-x64/publish/QuickSType.exe
+    runs-on: ${{ matrix.os }}
+    name: aot-publish (${{ matrix.rid }})
+    steps:
+      - uses: actions/checkout@v4
+
+      # Per RESEARCH.md Pitfall 2 / setup-dotnet#711: do NOT pass `dotnet-version`.
+      # The action reads global.json (10.0.100, rollForward latestFeature).
+      - uses: actions/setup-dotnet@v4
+
+      - name: dotnet --info
+        run: dotnet --info
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: AOT publish (${{ matrix.rid }})
+        run: dotnet publish src/QuickSType.UI -c Release -r ${{ matrix.rid }} -p:PublishAot=true --nologo
+        # Directory.Build.props injects WarningsAsErrors=IL2026;IL3050 at Release.
+
+      - name: Upload published artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: quickstype-${{ matrix.rid }}
+          path: src/QuickSType.UI/bin/Release/net10.0/${{ matrix.rid }}/publish/
+          if-no-files-found: error
+          retention-days: 7

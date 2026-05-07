@@ -13,11 +13,21 @@
     <Authors>Saher Khateeb</Authors>
     <Product>QuickSType</Product>
     <Copyright>Copyright (c) 2026 Saher Khateeb</Copyright>
+    <!-- HARDEN-04 / Threat T-05-01: pin NuGet graph via lock file to prevent
+         transitive trim-graph drift between machines and CI runs. -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <DebugType>portable</DebugType>
     <Optimize>true</Optimize>
+    <!-- HARDEN-04: per-call-site IL2026/IL3050 visibility (Pattern 4 / Pitfall 1).
+         Default (true) collapses third-party warnings into one line, hiding the
+         per-site detail needed to write [UnconditionalSuppressMessage] justifications. -->
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <!-- HARDEN-04: AOT/trim warnings are errors at Release/publish. Day-to-day
+         Debug build is unaffected (TreatWarningsAsErrors stays false globally). -->
+    <WarningsAsErrors>$(WarningsAsErrors);IL2026;IL3050</WarningsAsErrors>
   </PropertyGroup>
 
 </Project>
