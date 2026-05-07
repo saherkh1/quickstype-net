@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using QuickSType.Core.Config;
 using QuickSType.Core.Transcribe;
 using QuickSType.UI.Composition;
@@ -10,13 +12,17 @@ namespace QuickSType.UI.Views;
 
 public partial class MainWindow : Window
 {
+    private readonly ILogger _log;
+
     public MainWindow()
     {
+        _log = NullLogger.Instance;
         InitializeComponent();
     }
 
-    public MainWindow(AppHost host) : this()
+    public MainWindow(AppHost host, ILogger<MainWindow>? log = null) : this()
     {
+        _log = (ILogger?)log ?? NullLogger.Instance;
         DataContext = new SettingsViewModel(host);
         WireButtons();
     }
@@ -49,7 +55,7 @@ public partial class MainWindow : Window
         };
     }
 
-    private static void OpenInFinder(string path)
+    private void OpenInFinder(string path)
     {
         try
         {
@@ -59,7 +65,7 @@ public partial class MainWindow : Window
             else if (System.OperatingSystem.IsWindows())
                 Process.Start(new ProcessStartInfo("explorer.exe", path) { UseShellExecute = true });
         }
-        catch { /* swallow */ }
+        catch (Exception ex) { _log.LogWarning(ex, "OpenInFinder failed for {Path}", path); }
     }
 }
 

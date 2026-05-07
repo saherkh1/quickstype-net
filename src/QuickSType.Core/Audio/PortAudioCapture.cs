@@ -163,6 +163,6 @@ public sealed class PortAudioCapture : IAudioCapture
         {
             if (_isRecording) Stop();
         }
-        catch { /* swallow on dispose */ }
+        catch (Exception ex) { _log.LogDebug(ex, "PortAudioCapture dispose threw"); }
     }
 }

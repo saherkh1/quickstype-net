@@ -108,6 +108,6 @@ public sealed class HotkeyService : IDisposable
             _hook.KeyReleased -= OnKeyReleased;
             _hook.Dispose();
         }
-        catch { /* swallow on dispose */ }
+        catch (Exception ex) { _log.LogDebug(ex, "HotkeyService dispose threw"); }
     }
 }

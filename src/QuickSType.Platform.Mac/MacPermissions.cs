@@ -1,11 +1,20 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using QuickSType.Core.Platform;
 
 namespace QuickSType.Platform.Mac;
 
 public sealed partial class MacPermissions : IPermissionService
 {
+    private readonly ILogger _log;
+
+    public MacPermissions(ILogger<MacPermissions>? log = null)
+    {
+        _log = (ILogger?)log ?? NullLogger.Instance;
+    }
+
     public bool HasMicrophoneAccess() => true;
 
     public bool HasInputMonitoringAccess() => true;
@@ -34,8 +43,9 @@ public sealed partial class MacPermissions : IPermissionService
             try { AXIsProcessTrustedWithOptions(dict); }
             finally { if (dict != IntPtr.Zero) CFRelease(dict); }
         }
-        catch
+        catch (Exception ex)
         {
+            _log.LogWarning(ex, "AXIsProcessTrustedWithOptions threw; opening Accessibility settings");
             OpenAccessibilitySettings();
         }
     }
@@ -49,14 +59,14 @@ public sealed partial class MacPermissions : IPermissionService
     public void OpenAccessibilitySettings() =>
         OpenUrl("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility");
 
-    private static void OpenUrl(string url)
+    private void OpenUrl(string url)
     {
         try
         {
             var psi = new ProcessStartInfo("/usr/bin/open", url) { UseShellExecute = false };
             Process.Start(psi);
         }
-        catch { /* swallow */ }
+        catch (Exception ex) { _log.LogWarning(ex, "Failed to open Privacy URL {Url}", url); }
     }
 
     [LibraryImport("/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices", EntryPoint = "AXIsProcessTrusted")]

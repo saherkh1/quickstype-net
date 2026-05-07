@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using QuickSType.Core.Platform;
 
 namespace QuickSType.Platform.Mac;
@@ -6,6 +8,12 @@ namespace QuickSType.Platform.Mac;
 public sealed class MacAutoLaunch : IAutoLaunchService
 {
     private const string Label = "com.saherk.quickstype";
+    private readonly ILogger _log;
+
+    public MacAutoLaunch(ILogger<MacAutoLaunch>? log = null)
+    {
+        _log = (ILogger?)log ?? NullLogger.Instance;
+    }
 
     private static string PlistPath()
     {
@@ -23,7 +31,8 @@ public sealed class MacAutoLaunch : IAutoLaunchService
             if (File.Exists(plistPath))
             {
                 Unload(plistPath);
-                try { File.Delete(plistPath); } catch { /* swallow */ }
+                try { File.Delete(plistPath); }
+                catch (Exception ex) { _log.LogDebug(ex, "Could not delete plist {Path}", plistPath); }
             }
             return;
         }
@@ -56,7 +65,7 @@ public sealed class MacAutoLaunch : IAutoLaunchService
         Load(plistPath);
     }
 
-    private static void Load(string plistPath)
+    private void Load(string plistPath)
     {
         try
         {
@@ -68,10 +77,10 @@ public sealed class MacAutoLaunch : IAutoLaunchService
             });
             p?.WaitForExit(2000);
         }
-        catch { /* swallow */ }
+        catch (Exception ex) { _log.LogWarning(ex, "launchctl load failed for {Path}", plistPath); }
     }
 
-    private static void Unload(string plistPath)
+    private void Unload(string plistPath)
     {
         try
         {
@@ -83,6 +92,6 @@ public sealed class MacAutoLaunch : IAutoLaunchService
             });
             p?.WaitForExit(2000);
         }
-        catch { /* swallow */ }
+        catch (Exception ex) { _log.LogWarning(ex, "launchctl unload failed for {Path}", plistPath); }
     }
 }

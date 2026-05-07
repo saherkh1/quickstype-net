@@ -1,11 +1,20 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using QuickSType.Core.Platform;
 
 namespace QuickSType.Platform.Windows;
 
 public sealed partial class WindowsNotifications : INotificationService
 {
+    private readonly ILogger _log;
+
+    public WindowsNotifications(ILogger<WindowsNotifications>? log = null)
+    {
+        _log = (ILogger?)log ?? NullLogger.Instance;
+    }
+
     public void Notify(string title, string message, string? subtitle = null)
     {
         var body = subtitle is null ? message : $"{subtitle}\n{message}";
@@ -32,18 +41,18 @@ public sealed partial class WindowsNotifications : INotificationService
                 RedirectStandardError = true,
             });
         }
-        catch { /* notifications best-effort */ }
+        catch (Exception ex) { _log.LogWarning(ex, "powershell.exe NotifyIcon spawn failed for {Title}", title); }
     }
 
     public Task PlayStartAsync()
     {
-        try { Beep(880, 80); } catch { /* ignore */ }
+        try { Beep(880, 80); } catch (Exception ex) { _log.LogTrace(ex, "Beep(start) failed"); }
         return Task.CompletedTask;
     }
 
     public Task PlayStopAsync()
     {
-        try { Beep(440, 80); } catch { /* ignore */ }
+        try { Beep(440, 80); } catch (Exception ex) { _log.LogTrace(ex, "Beep(stop) failed"); }
         return Task.CompletedTask;
     }
 

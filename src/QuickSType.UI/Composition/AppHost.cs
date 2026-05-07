@@ -76,15 +76,15 @@ public sealed class AppHost : IDisposable
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
             paste = new Platform.Mac.MacPasteService(lf.CreateLogger<Platform.Mac.MacPasteService>());
-            notify = new Platform.Mac.MacNotifications();
-            permissions = new Platform.Mac.MacPermissions();
-            autoLaunch = new Platform.Mac.MacAutoLaunch();
+            notify = new Platform.Mac.MacNotifications(lf.CreateLogger<Platform.Mac.MacNotifications>());
+            permissions = new Platform.Mac.MacPermissions(lf.CreateLogger<Platform.Mac.MacPermissions>());
+            autoLaunch = new Platform.Mac.MacAutoLaunch(lf.CreateLogger<Platform.Mac.MacAutoLaunch>());
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             paste = new Platform.Windows.WindowsPasteService(lf.CreateLogger<Platform.Windows.WindowsPasteService>());
-            notify = new Platform.Windows.WindowsNotifications();
-            permissions = new Platform.Windows.WindowsPermissions();
+            notify = new Platform.Windows.WindowsNotifications(lf.CreateLogger<Platform.Windows.WindowsNotifications>());
+            permissions = new Platform.Windows.WindowsPermissions(lf.CreateLogger<Platform.Windows.WindowsPermissions>());
             autoLaunch = new Platform.Windows.WindowsAutoLaunch();
         }
         else
@@ -118,7 +118,7 @@ public sealed class AppHost : IDisposable
         Engine.UpdateConfig(cfg);
         Hotkey.SetHotkey(cfg.Hotkey);
         try { ConfigChanged?.Invoke(cfg); }
-        catch { /* swallow handler errors */ }
+        catch (Exception ex) { LoggerFactory.CreateLogger<AppHost>().LogError(ex, "ConfigChanged handler threw"); }
     }
 
     public void Dispose()

@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using QuickSType.Core.Platform;
 
 namespace QuickSType.Platform.Mac;
@@ -10,6 +12,12 @@ public sealed class MacNotifications : INotificationService
     private const string SoundDir = "/System/Library/Sounds";
     private const string StartSound = "Tink.aiff";
     private const string StopSound = "Pop.aiff";
+    private readonly ILogger _log;
+
+    public MacNotifications(ILogger<MacNotifications>? log = null)
+    {
+        _log = (ILogger?)log ?? NullLogger.Instance;
+    }
 
     public void Notify(string title, string message, string? subtitle = null)
     {
@@ -30,16 +38,16 @@ public sealed class MacNotifications : INotificationService
             });
             p?.WaitForExit(1500);
         }
-        catch
+        catch (Exception ex)
         {
-            /* notifications are best-effort */
+            _log.LogWarning(ex, "osascript display notification failed for {Title}", title);
         }
     }
 
     public Task PlayStartAsync() => PlaySoundAsync(StartSound);
     public Task PlayStopAsync() => PlaySoundAsync(StopSound);
 
-    private static Task PlaySoundAsync(string fileName)
+    private Task PlaySoundAsync(string fileName)
     {
         var path = System.IO.Path.Combine(SoundDir, fileName);
         if (!File.Exists(path)) return Task.CompletedTask;
@@ -57,8 +65,9 @@ public sealed class MacNotifications : INotificationService
             var p = Process.Start(psi);
             return Task.CompletedTask;
         }
-        catch
+        catch (Exception ex)
         {
+            _log.LogDebug(ex, "afplay failed for {Path}", path);
             return Task.CompletedTask;
         }
     }

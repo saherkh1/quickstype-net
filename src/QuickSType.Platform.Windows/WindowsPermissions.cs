@@ -1,9 +1,18 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using QuickSType.Core.Platform;
 
 namespace QuickSType.Platform.Windows;
 
 public sealed class WindowsPermissions : IPermissionService
 {
+    private readonly ILogger _log;
+
+    public WindowsPermissions(ILogger<WindowsPermissions>? log = null)
+    {
+        _log = (ILogger?)log ?? NullLogger.Instance;
+    }
+
     public bool HasMicrophoneAccess() => true;
     public bool HasInputMonitoringAccess() => true;
     public bool HasAccessibilityAccess() => true;
@@ -14,12 +23,12 @@ public sealed class WindowsPermissions : IPermissionService
 
     public void RequestAccessibilityIfNeeded() { /* no-op on Windows */ }
 
-    private static void OpenSettings(string uri)
+    private void OpenSettings(string uri)
     {
         try
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(uri) { UseShellExecute = true });
         }
-        catch { /* swallow */ }
+        catch (Exception ex) { _log.LogWarning(ex, "Failed to open ms-settings URI {Uri}", uri); }
     }
 }

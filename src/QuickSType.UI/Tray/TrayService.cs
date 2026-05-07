@@ -4,6 +4,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using Microsoft.Extensions.Logging;
 using QuickSType.Core;
 using QuickSType.UI.Composition;
 using QuickSType.UI.Views;
@@ -13,6 +14,7 @@ namespace QuickSType.UI.Tray;
 public sealed class TrayService
 {
     private readonly AppHost _host;
+    private readonly ILogger _log;
     private TrayIcon? _trayIcon;
     private NativeMenu? _menu;
     private NativeMenuItem? _stateItem;
@@ -28,6 +30,7 @@ public sealed class TrayService
     public TrayService(AppHost host)
     {
         _host = host;
+        _log = host.LoggerFactory.CreateLogger<TrayService>();
         _host.Engine.StateChanged += OnStateChanged;
         _host.ConfigChanged += _ => Dispatcher.UIThread.Post(OnConfigChanged);
     }
@@ -200,7 +203,7 @@ public sealed class TrayService
         {
             if (_mainWindow is null)
             {
-                _mainWindow = new MainWindow(_host);
+                _mainWindow = new MainWindow(_host, _host.LoggerFactory.CreateLogger<MainWindow>());
                 _mainWindow.Closed += (_, _) => _mainWindow = null;
             }
 
@@ -226,7 +229,7 @@ public sealed class TrayService
         });
     }
 
-    private static WindowIcon? LoadIcon(string name)
+    private WindowIcon? LoadIcon(string name)
     {
         try
         {
@@ -234,8 +237,9 @@ public sealed class TrayService
             using var stream = AssetLoader.Open(uri);
             return new WindowIcon(stream);
         }
-        catch
+        catch (Exception ex)
         {
+            _log.LogWarning(ex, "Failed to load tray icon {Name}", name);
             return null;
         }
     }
