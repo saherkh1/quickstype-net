@@ -5,15 +5,22 @@ namespace QuickSType.Core.Transcribe;
 
 public sealed class ModelDownloader
 {
-    private static readonly HttpClient Http = new(new SocketsHttpHandler { AllowAutoRedirect = true })
+    private static readonly HttpClient DefaultHttp = new(new SocketsHttpHandler { AllowAutoRedirect = true })
     {
         Timeout = TimeSpan.FromMinutes(60),
     };
 
+    private readonly HttpClient _http;
     private readonly ILogger _log;
 
     public ModelDownloader(ILogger<ModelDownloader>? log = null)
+        : this(DefaultHttp, log)
     {
+    }
+
+    internal ModelDownloader(HttpClient http, ILogger<ModelDownloader>? log = null)
+    {
+        _http = http;
         _log = (ILogger?)log ?? NullLogger.Instance;
     }
 
@@ -27,17 +34,14 @@ public sealed class ModelDownloader
         IProgress<Progress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        var manifest = ModelManifestLoader.Load();
+        var expectedSha = manifest.GetSha256(model.Id);   // throws ArgumentException if missing
+        var pinnedUrl = manifest.GetUrl(model.Id);
+
         var dir = ModelCatalog.ModelsDirectory();
         Directory.CreateDirectory(dir);
         var finalPath = ModelCatalog.PathFor(model.Id);
         var partPath = finalPath + ".part";
-
-        long resumeFrom = 0;
-        if (File.Exists(partPath))
-        {
-            resumeFrom = new FileInfo(partPath).Length;
-            _log.LogInformation("Resuming model download from {Bytes} bytes", resumeFrom);
-        }
 
         if (File.Exists(finalPath))
         {
@@ -45,19 +49,40 @@ public sealed class ModelDownloader
             return finalPath;
         }
 
-        using var request = new HttpRequestMessage(HttpMethod.Get, model.Url);
-        if (resumeFrom > 0)
-        {
-            request.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(resumeFrom, null);
-        }
+        long resumeFrom = File.Exists(partPath) ? new FileInfo(partPath).Length : 0;
+        if (resumeFrom > 0) _log.LogInformation("Resuming model download from {Bytes} bytes", resumeFrom);
 
-        using var response = await Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        using var request = new HttpRequestMessage(HttpMethod.Get, pinnedUrl);
+        if (resumeFrom > 0)
+            request.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(resumeFrom, null);
+
+        using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         response.EnsureSuccessStatusCode();
 
-        var total = response.Content.Headers.ContentLength ?? model.ApproxSizeBytes;
-        if (resumeFrom > 0 && response.Content.Headers.ContentRange?.Length is long full)
+        // HARDEN-01 / Pitfall 3: server ignored Range — must restart from zero
+        if (resumeFrom > 0 && response.StatusCode != System.Net.HttpStatusCode.PartialContent)
         {
-            total = full;
+            _log.LogWarning("Server returned 200 to a Range request; restarting download from zero for {Id}", model.Id);
+            if (File.Exists(partPath)) File.Delete(partPath);
+            resumeFrom = 0;
+        }
+
+        var total = response.Content.Headers.ContentLength ?? model.ApproxSizeBytes;
+        if (resumeFrom > 0 && response.Content.Headers.ContentRange?.Length is long full) total = full;
+
+        using var hasher = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.SHA256);
+
+        // If resuming, we must re-hash the existing .part bytes BEFORE appending; otherwise the final SHA-256 is wrong.
+        if (resumeFrom > 0)
+        {
+            await using var existing = new FileStream(partPath, FileMode.Open, FileAccess.Read, FileShare.None, 81920, useAsync: true);
+            var rebuf = new byte[81920];
+            while (true)
+            {
+                var rn = await existing.ReadAsync(rebuf, cancellationToken);
+                if (rn == 0) break;
+                hasher.AppendData(rebuf, 0, rn);
+            }
         }
 
         await using var http = await response.Content.ReadAsStreamAsync(cancellationToken);
@@ -73,6 +98,7 @@ public sealed class ModelDownloader
             cancellationToken.ThrowIfCancellationRequested();
             var n = await http.ReadAsync(buffer, cancellationToken);
             if (n == 0) break;
+            hasher.AppendData(buffer, 0, n);
             await file.WriteAsync(buffer.AsMemory(0, n), cancellationToken);
             downloaded += n;
 
@@ -89,9 +115,21 @@ public sealed class ModelDownloader
 
         await file.FlushAsync(cancellationToken);
         file.Close();
+
+        var actualBytes = hasher.GetHashAndReset();
+        var actualHex = Convert.ToHexStringLower(actualBytes);
+        var expectedBytes = Convert.FromHexString(expectedSha);
+
+        if (!System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(actualBytes, expectedBytes))
+        {
+            File.Delete(partPath);
+            _log.LogError("SHA-256 mismatch for {Id}: expected {Expected}, actual {Actual}", model.Id, expectedSha, actualHex);
+            throw new ModelIntegrityException(model.Id, expectedSha, actualHex);
+        }
+
         File.Move(partPath, finalPath, overwrite: true);
         progress?.Report(new Progress(downloaded, total, 0));
-        _log.LogInformation("Downloaded model {Id} to {Path}", model.Id, finalPath);
+        _log.LogInformation("Downloaded model {Id} to {Path} (sha256 verified)", model.Id, finalPath);
         return finalPath;
     }
 }
