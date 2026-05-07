@@ -14,7 +14,7 @@ public sealed record AppConfig
     public string ActiveLanguage { get; init; } = "en";
 
     [JsonPropertyName("hotkey")]
-    public string Hotkey { get; init; } = "VcRightAlt";
+    public string Hotkey { get; init; } = "VcRightCtrl";   // HARDEN-02 / D-Q3: was "VcRightAlt"; flipped to dodge AltGr collision on Windows international layouts
 
     [JsonPropertyName("auto_language")]
     public bool AutoLanguage { get; init; }
