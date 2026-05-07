@@ -8,6 +8,7 @@ namespace QuickSType.Core.Config;
     DefaultIgnoreCondition = JsonIgnoreCondition.Never)]
 [JsonSerializable(typeof(AppConfig))]
 [JsonSerializable(typeof(LegacyPythonConfig))]
+[JsonSerializable(typeof(QuickSType.Core.Transcribe.ModelManifest))]
 public partial class ConfigJsonContext : JsonSerializerContext
 {
 }

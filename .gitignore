@@ -42,6 +42,7 @@ appsettings.Development.json
 
 ## Models (large, downloaded at runtime)
 models/
+!models/manifest.json
 *.bin
 *.mlmodelc/
 
