@@ -50,3 +50,108 @@ jobs:
           path: src/QuickSType.UI/bin/Release/net10.0/${{ matrix.rid }}/publish/
           if-no-files-found: error
           retention-days: 7
+
+  smoke:
+    needs: publish
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            rid: osx-arm64
+            binary_path: quickstype-osx-arm64/QuickSType
+          - os: macos-13
+            rid: osx-x64
+            binary_path: quickstype-osx-x64/QuickSType
+          - os: windows-2022
+            rid: win-x64
+            binary_path: quickstype-win-x64/QuickSType.exe
+    runs-on: ${{ matrix.os }}
+    name: smoke (${{ matrix.rid }})
+    steps:
+      - uses: actions/checkout@v4
+
+      # Read manifest entry for ggml-tiny — its SHA-256 is the cache key.
+      - name: Read ggml-tiny SHA-256 from manifest
+        id: manifest
+        shell: bash
+        run: |
+          SHA=$(python3 -c 'import json; print(json.load(open("models/manifest.json"))["entries"]["ggml-tiny"]["sha256"])')
+          echo "tiny_sha=$SHA" >> "$GITHUB_OUTPUT"
+          # URL is also content-addressable via the same manifest entry.
+          URL=$(python3 -c 'import json; print(json.load(open("models/manifest.json"))["entries"]["ggml-tiny"]["url"])')
+          echo "tiny_url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Cache ggml-tiny model (keyed on manifest SHA-256)
+        id: cache_tiny
+        uses: actions/cache@v4
+        with:
+          path: ~/quickstype-models/ggml-tiny.bin
+          key: ggml-tiny-${{ steps.manifest.outputs.tiny_sha }}
+
+      - name: Download ggml-tiny if cache miss
+        if: steps.cache_tiny.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          mkdir -p ~/quickstype-models
+          curl -L -o ~/quickstype-models/ggml-tiny.bin '${{ steps.manifest.outputs.tiny_url }}'
+
+      - name: Verify ggml-tiny SHA-256 (defense-in-depth; the binary verifies again at runtime)
+        shell: bash
+        run: |
+          EXPECTED='${{ steps.manifest.outputs.tiny_sha }}'
+          if [[ '${{ runner.os }}' == 'Windows' ]]; then
+            ACTUAL=$(certutil -hashfile ~/quickstype-models/ggml-tiny.bin SHA256 | sed -n '2p' | tr -d ' \r' | tr 'A-Z' 'a-z')
+          else
+            ACTUAL=$(shasum -a 256 ~/quickstype-models/ggml-tiny.bin | awk '{print $1}')
+          fi
+          if [[ "$ACTUAL" != "$EXPECTED" ]]; then
+            echo "ggml-tiny SHA-256 mismatch: expected $EXPECTED, got $ACTUAL" >&2
+            exit 1
+          fi
+
+      - name: Download published artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: quickstype-${{ matrix.rid }}
+          path: ${{ format('quickstype-{0}', matrix.rid) }}
+
+      - name: Mark binary executable (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: chmod +x '${{ matrix.binary_path }}'
+
+      - name: Stage smoke fixture next to binary (matches Content/Link layout)
+        shell: bash
+        run: |
+          BINDIR=$(dirname '${{ matrix.binary_path }}')
+          mkdir -p "$BINDIR/tests/fixtures" "$BINDIR/models"
+          cp tests/fixtures/smoke.wav         "$BINDIR/tests/fixtures/smoke.wav"
+          cp tests/fixtures/smoke.expected.json "$BINDIR/tests/fixtures/smoke.expected.json"
+          cp models/manifest.json             "$BINDIR/models/manifest.json"
+
+      - name: Run smoke harness (--smoke-test)
+        shell: bash
+        env:
+          QUICKSTYPE_SMOKE_MODEL_PATH: ${{ format('{0}/quickstype-models/ggml-tiny.bin', github.event.os == 'Windows' && env.USERPROFILE || env.HOME) }}
+        run: |
+          # The smoke harness reads QUICKSTYPE_SMOKE_MODEL_PATH; the cached model lives
+          # in $HOME/quickstype-models/ggml-tiny.bin. The fixture is the staged copy.
+          set -e
+          BINDIR=$(dirname '${{ matrix.binary_path }}')
+          OUTPUT=$('${{ matrix.binary_path }}' --smoke-test "$BINDIR/tests/fixtures/smoke.wav")
+          EXIT=$?
+          echo "::group::transcript"
+          echo "$OUTPUT"
+          echo "::endgroup::"
+          if [[ $EXIT -ne 0 ]]; then
+            echo "smoke harness exited $EXIT" >&2
+            exit $EXIT
+          fi
+          # Defense-in-depth: shell-side substring grep mirrors the harness's own assertion.
+          # Reads must_contain_lowercase[0] from the contract.
+          TOKEN=$(python3 -c 'import json; print(json.load(open("tests/fixtures/smoke.expected.json"))["must_contain_lowercase"][0])')
+          if ! echo "$OUTPUT" | tr 'A-Z' 'a-z' | grep -qF "$TOKEN"; then
+            echo "smoke: transcript does not contain '$TOKEN'" >&2
+            exit 30
+          fi
