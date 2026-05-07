@@ -44,3 +44,6 @@ appsettings.Development.json
 models/
 *.bin
 *.mlmodelc/
+
+## GSD planning (commit_docs=false)
+.planning/
