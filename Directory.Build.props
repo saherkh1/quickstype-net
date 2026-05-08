@@ -13,9 +13,7 @@
     <Authors>Saher Khateeb</Authors>
     <Product>QuickSType</Product>
     <Copyright>Copyright (c) 2026 Saher Khateeb</Copyright>
-    <!-- HARDEN-04 / Threat T-05-01: pin NuGet graph via lock file to prevent
-         transitive trim-graph drift between machines and CI runs. -->
-    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
