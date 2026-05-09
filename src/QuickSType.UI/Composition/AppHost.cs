@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using QuickSType.Core;
 using QuickSType.Core.Audio;
 using QuickSType.Core.Config;
+using QuickSType.Core.History;
 using QuickSType.Core.Hotkey;
 using QuickSType.Core.Paste;
 using QuickSType.Core.Platform;
@@ -24,6 +25,9 @@ public sealed class AppHost : IDisposable
     public DictationEngine Engine { get; }
     public ILoggerFactory LoggerFactory { get; }
     public ModelDownloader ModelDownloader { get; }
+    public ISystemSpecsService SystemSpecsService { get; }
+    public SystemSpecs SystemSpecs { get; }
+    public IHistoryService History { get; }
 
     private AppHost(
         ConfigStoreWithExists configStore,
@@ -37,7 +41,10 @@ public sealed class AppHost : IDisposable
         HotkeyService hotkey,
         DictationEngine engine,
         ILoggerFactory lf,
-        ModelDownloader downloader)
+        ModelDownloader downloader,
+        ISystemSpecsService specsService,
+        SystemSpecs systemSpecs,
+        IHistoryService history)
     {
         ConfigStore = configStore;
         Config = config;
@@ -51,6 +58,9 @@ public sealed class AppHost : IDisposable
         Engine = engine;
         LoggerFactory = lf;
         ModelDownloader = downloader;
+        SystemSpecsService = specsService;
+        SystemSpecs = systemSpecs;
+        History = history;
     }
 
     public static AppHost Create()
@@ -63,6 +73,17 @@ public sealed class AppHost : IDisposable
 
         var configStore = new ConfigStoreWithExists(lf.CreateLogger<ConfigStore>());
         var config = configStore.Load();
+
+        // CONFIG-02 / CONFIG-03 / D-08: detect hardware specs ONCE, BEFORE any WhisperFactory is constructed.
+        // (Transcriber's constructor does not create a WhisperFactory; EnsureLoaded() does, on first dictation.
+        //  Pattern 4 / Pitfall 2: RuntimeOptions.RuntimeLibraryOrder is global static — the CUDA probe inside
+        //  SystemSpecsService.Detect() saves and restores it, so subsequent WhisperFactory.FromPath calls
+        //  see the original library order.)
+        var specsService = new SystemSpecsService(lf.CreateLogger<SystemSpecsService>());
+        var systemSpecs = specsService.Detect();
+
+        // CONFIG-05: history writer (path under Application Support / LocalAppData; same dir family as ConfigStore).
+        var historyService = new HistoryService(lf.CreateLogger<HistoryService>());
 
         var audio = new PortAudioCapture(lf.CreateLogger<PortAudioCapture>());
         var transcriber = new Transcriber(lf.CreateLogger<Transcriber>());
@@ -96,12 +117,18 @@ public sealed class AppHost : IDisposable
         }
 
         var hotkey = new HotkeyService(config.Hotkey, lf.CreateLogger<HotkeyService>());
-        var engine = new DictationEngine(audio, transcriber, paste, notify, configStore, config, lf.CreateLogger<DictationEngine>());
+        var engine = new DictationEngine(
+            audio, transcriber, paste, notify, configStore, config,
+            log: lf.CreateLogger<DictationEngine>(),
+            history: historyService);
 
         hotkey.Pressed += engine.OnHotkeyPressed;
         hotkey.Released += engine.OnHotkeyReleased;
 
-        return new AppHost(configStore, config, audio, transcriber, paste, notify, permissions, autoLaunch, hotkey, engine, lf, downloader);
+        return new AppHost(
+            configStore, config, audio, transcriber, paste, notify, permissions, autoLaunch,
+            hotkey, engine, lf, downloader,
+            specsService, systemSpecs, historyService);
     }
 
     public event Action<AppConfig>? ConfigChanged;
