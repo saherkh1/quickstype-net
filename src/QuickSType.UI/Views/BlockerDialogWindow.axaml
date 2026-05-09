@@ -1,0 +1,48 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="QuickSType.UI.Views.BlockerDialogWindow"
+        Title="QuickSType — System check"
+        Width="480" Height="240"
+        CanResize="False"
+        SystemDecorations="Full"
+        WindowStartupLocation="CenterScreen">
+
+  <Window.Styles>
+    <Style Selector="TextBlock.h1">
+      <Setter Property="FontSize" Value="20" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Margin" Value="0,0,0,4" />
+    </Style>
+    <Style Selector="TextBlock.muted">
+      <Setter Property="Opacity" Value="0.65" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+  </Window.Styles>
+
+  <Grid Margin="32,24" RowDefinitions="Auto,Auto,Auto,*,Auto">
+
+    <TextBlock Grid.Row="0" Classes="h1"
+               Text="This system can't run any Whisper model" />
+
+    <TextBlock Grid.Row="1" Margin="0,8,0,0" TextWrapping="Wrap"
+               Name="BodyText" />
+
+    <TextBlock Grid.Row="2" Classes="muted" Margin="0,12,0,0"
+               Text="You can still open Settings to pick a model manually — some models may exceed your hardware and run slowly." />
+
+    <StackPanel Grid.Row="4" Orientation="Horizontal"
+                HorizontalAlignment="Right" Spacing="12" Margin="0,16,0,0">
+      <Button Name="QuitButton"
+              Content="Quit"
+              MinWidth="120"
+              IsCancel="True" />
+      <Button Name="OpenSettingsButton"
+              Content="Open Settings"
+              MinWidth="120"
+              Classes="accent"
+              IsDefault="True" />
+    </StackPanel>
+
+  </Grid>
+</Window>
