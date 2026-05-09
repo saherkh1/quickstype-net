@@ -9,6 +9,7 @@ namespace QuickSType.Core.Config;
 [JsonSerializable(typeof(AppConfig))]
 [JsonSerializable(typeof(LegacyPythonConfig))]
 [JsonSerializable(typeof(QuickSType.Core.Transcribe.ModelManifest))]
+[JsonSerializable(typeof(QuickSType.Core.History.HistoryEntry))]
 public partial class ConfigJsonContext : JsonSerializerContext
 {
 }
