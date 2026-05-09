@@ -5,6 +5,7 @@ using QuickSType.Core.Config;
 using QuickSType.Core.Hotkey;
 using QuickSType.Core.Paste;
 using QuickSType.Core.Platform;
+using QuickSType.Core.History;
 using QuickSType.Core.Transcribe;
 
 namespace QuickSType.Core;
@@ -23,6 +24,7 @@ public sealed class DictationEngine : IDisposable
     private readonly Transcriber _transcriber;
     private readonly IPasteService _paste;
     private readonly INotificationService _notify;
+    private readonly IHistoryService? _history;
     private readonly ConfigStore _configStore;
     private AppConfig _config;
     private DictationState _state = DictationState.Idle;
@@ -42,12 +44,14 @@ public sealed class DictationEngine : IDisposable
         INotificationService notify,
         ConfigStore configStore,
         AppConfig config,
-        ILogger<DictationEngine>? log = null)
+        ILogger<DictationEngine>? log = null,
+        IHistoryService? history = null)
     {
         _audio = audio;
         _transcriber = transcriber;
         _paste = paste;
         _notify = notify;
+        _history = history;
         _configStore = configStore;
         _config = config;
         _log = (ILogger?)log ?? NullLogger.Instance;
@@ -133,6 +137,25 @@ public sealed class DictationEngine : IDisposable
 
             await _paste.PasteAsync(text, ct);
             Transcribed?.Invoke(text);
+
+            // CONFIG-05: append a history entry after successful paste. Fire-and-forget;
+            // HistoryService.AppendAsync swallows I/O errors internally.
+            if (_history is not null)
+            {
+                var durationMs = _audio.SampleRate > 0
+                    ? (int)Math.Round(samples.Length / (double)_audio.SampleRate * 1000.0)
+                    : 0;
+                var entry = new HistoryEntry
+                {
+                    Ts = DateTime.UtcNow.ToString("o"),
+                    Text = text,
+                    Model = _config.Model,
+                    Lang = _config.ActiveLanguage,
+                    DurationMs = durationMs,
+                    Device = _config.SelectedAudioDevice,
+                };
+                _ = _history.AppendAsync(entry);
+            }
 
             if (_config.ShowNotifications)
             {
