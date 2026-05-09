@@ -16,6 +16,14 @@ namespace QuickSType.Core.Platform;
 /// </summary>
 public sealed class SystemSpecsService : ISystemSpecsService
 {
+    /// <summary>Single source of truth — minimum RAM (GiB) to run the smallest Whisper model.</summary>
+    public const double MinRamGb = 2.0;
+    /// <summary>Single source of truth — minimum free disk (GiB) to run the smallest Whisper model.</summary>
+    public const double MinFreeDiskGb = 1.0;
+
+    double ISystemSpecsService.MinRamGb => MinRamGb;
+    double ISystemSpecsService.MinFreeDiskGb => MinFreeDiskGb;
+
     private readonly ILogger _log;
 
     public SystemSpecsService(ILogger<SystemSpecsService>? log = null)
@@ -67,7 +75,7 @@ public sealed class SystemSpecsService : ISystemSpecsService
     };
 
     public bool IsBlocker(SystemSpecs specs)
-        => specs.TotalRamGb < 2.0 || specs.FreeDiskGb < 1.0;
+        => specs.TotalRamGb < MinRamGb || specs.FreeDiskGb < MinFreeDiskGb;
 
     public string? GetHardwareWarning(ModelInfo model, SystemSpecs specs)
     {

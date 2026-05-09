@@ -22,7 +22,7 @@ public partial class BlockerDialogWindow : Window
         InitializeComponent();
     }
 
-    public BlockerDialogWindow(SystemSpecs specs, Action onOpenSettings, ILogger<BlockerDialogWindow>? log = null) : this()
+    public BlockerDialogWindow(SystemSpecs specs, double minRamGb, double minFreeDiskGb, Action onOpenSettings, ILogger<BlockerDialogWindow>? log = null) : this()
     {
         _log = (ILogger?)log ?? NullLogger.Instance;
         _onOpenSettings = onOpenSettings;
@@ -35,7 +35,7 @@ public partial class BlockerDialogWindow : Window
         if (bodyTb is not null)
         {
             bodyTb.Text =
-                $"QuickSType needs at least 2 GB of free RAM and 1 GB of free disk to run the smallest model. " +
+                $"QuickSType needs at least {minRamGb:F0} GB of free RAM and {minFreeDiskGb:F0} GB of free disk to run the smallest model. " +
                 $"Your system reports {ramStr} GB RAM and {diskStr} GB free disk.";
         }
 

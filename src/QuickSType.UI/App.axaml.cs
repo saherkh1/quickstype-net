@@ -11,6 +11,7 @@ public partial class App : Application
 {
     public AppHost? Host { get; private set; }
     public TrayService? Tray { get; private set; }
+    private Views.BlockerDialogWindow? _blocker;
 
     public override void Initialize()
     {
@@ -35,11 +36,13 @@ public partial class App : Application
                     "Hardware spec check failed: RAM={RamGb:F1} GB, FreeDisk={DiskGb:F1} GB; showing blocker dialog",
                     Host.SystemSpecs.TotalRamGb, Host.SystemSpecs.FreeDiskGb);
 
-                var blocker = new Views.BlockerDialogWindow(
+                _blocker = new Views.BlockerDialogWindow(
                     Host.SystemSpecs,
+                    Host.SystemSpecsService.MinRamGb,
+                    Host.SystemSpecsService.MinFreeDiskGb,
                     onOpenSettings: () => OnBlockerOpenSettings(),
                     log: Host.LoggerFactory.CreateLogger<Views.BlockerDialogWindow>());
-                blocker.Show();
+                _blocker.Show();
 
                 base.OnFrameworkInitializationCompleted();
                 return; // Tray NOT installed; blocker callback handles it on Open Settings.
@@ -62,14 +65,22 @@ public partial class App : Application
     {
         if (Host is null) return;
 
-        Tray = new TrayService(Host);
-        Tray.Install(this);
-        _ = Host.StartAsync();
+        try
+        {
+            Host.LoggerFactory.CreateLogger<App>().LogInformation("Blocker: OpenSettings callback invoked — installing tray and opening MainWindow on Models tab");
 
-        // Open the Settings window on the Models tab so the user can pick a model
-        // (D-05: bypass the resource gate; show ALL models with hardware warnings).
-        var mainWindow = new Views.MainWindow(Host, Host.LoggerFactory.CreateLogger<Views.MainWindow>());
-        mainWindow.NavigateTo(Views.MainTab.Models);
-        mainWindow.Show();
+            Tray = new TrayService(Host);
+            Tray.Install(this);
+            _ = Host.StartAsync();
+
+            var mainWindow = new Views.MainWindow(Host, Host.LoggerFactory.CreateLogger<Views.MainWindow>());
+            mainWindow.NavigateTo(Views.MainTab.Models);
+            mainWindow.Show();
+        }
+        catch (Exception ex)
+        {
+            Host.LoggerFactory.CreateLogger<App>().LogError(ex, "Blocker: OnBlockerOpenSettings failed");
+            Environment.Exit(1);
+        }
     }
 }

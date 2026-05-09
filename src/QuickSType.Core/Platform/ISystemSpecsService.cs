@@ -47,6 +47,11 @@ public interface ISystemSpecsService
     /// <summary>Warning string for a model under given specs (UI-SPEC S3). RAM warning takes precedence over disk warning. Null when the model fits.</summary>
     string? GetHardwareWarning(ModelInfo model, SystemSpecs specs);
 
-    /// <summary>True iff the host cannot run even the smallest model (RAM &lt; 2 GB or free disk &lt; 1 GB). Drives the pre-tray blocker dialog.</summary>
+    /// <summary>True iff the host cannot run even the smallest model (RAM &lt; MinRamGb or free disk &lt; MinFreeDiskGb). Drives the pre-tray blocker dialog.</summary>
     bool IsBlocker(SystemSpecs specs);
+
+    /// <summary>Minimum RAM (GiB) required to run the smallest model.</summary>
+    double MinRamGb { get; }
+    /// <summary>Minimum free disk (GiB) required to run the smallest model.</summary>
+    double MinFreeDiskGb { get; }
 }
