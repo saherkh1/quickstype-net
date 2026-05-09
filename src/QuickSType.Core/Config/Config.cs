@@ -32,7 +32,19 @@ public sealed record AppConfig
     public bool ShowNotifications { get; init; } = true;
 
     [JsonPropertyName("schema_version")]
-    public int SchemaVersion { get; init; } = 2;
+    public int SchemaVersion { get; init; } = 3;
+
+    [JsonPropertyName("enable_crash_telemetry")]
+    public bool EnableCrashTelemetry { get; init; } = false;
+
+    [JsonPropertyName("keyboard_layout_driven")]
+    public bool KeyboardLayoutDriven { get; init; } = false;
+
+    [JsonPropertyName("streaming_mode")]
+    public string StreamingMode { get; init; } = "auto";
+
+    [JsonPropertyName("preferred_model")]
+    public string? PreferredModel { get; init; } = null;
 
     public AppConfig WithLanguage(string lang)
     {
@@ -80,4 +92,10 @@ public sealed record AppConfig
             ActiveLanguage = newActive,
         };
     }
+
+    /// <summary>
+    /// Returns a copy of this config with <see cref="PreferredModel"/> set to <paramref name="modelId"/>.
+    /// Pass null to clear (e.g., to force the first-run flow on next launch — uncommon, normally only set forward).
+    /// </summary>
+    public AppConfig WithPreferredModel(string? modelId) => this with { PreferredModel = modelId };
 }
