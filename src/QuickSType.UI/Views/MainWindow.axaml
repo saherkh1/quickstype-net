@@ -139,15 +139,31 @@
           <TextBlock Classes="h1" Text="Whisper models" />
           <TextBlock Classes="muted" Text="QuickSType uses whisper.cpp ggml models. Download a model before recording. The Q5 turbo variant is a good balance of size, speed, and accuracy." />
 
+          <Border Background="{DynamicResource SystemAltLowColor}"
+                  CornerRadius="6"
+                  Padding="16,12"
+                  IsVisible="{Binding IsFirstRun}">
+            <StackPanel Spacing="8">
+              <TextBlock Classes="h1" Text="Pick a model to get started" />
+              <TextBlock Text="{Binding FirstRunBannerBody}" TextWrapping="Wrap" />
+              <TextBlock Classes="muted" Text="{Binding FirstRunBannerCaption}" />
+            </StackPanel>
+          </Border>
+
           <ComboBox ItemsSource="{Binding AvailableModels}"
                     SelectedValue="{Binding SelectedModel}"
-                    SelectedValueBinding="{Binding Id}"
+                    SelectedValueBinding="{Binding Model.Id}"
                     HorizontalAlignment="Stretch">
             <ComboBox.ItemTemplate>
-              <DataTemplate x:DataType="transcribe:ModelInfo">
+              <DataTemplate x:DataType="vm:ModelRowViewModel">
                 <StackPanel>
-                  <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
-                  <TextBlock Text="{Binding Description}" Opacity="0.7" FontSize="12" />
+                  <TextBlock Text="{Binding Model.DisplayName}" FontWeight="SemiBold" />
+                  <TextBlock Text="{Binding Model.Description}" Opacity="0.7" FontSize="12" />
+                  <TextBlock Text="{Binding HardwareWarning}"
+                             FontSize="12"
+                             Foreground="#D9822B"
+                             IsVisible="{Binding HardwareWarning,
+                                         Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                 </StackPanel>
               </DataTemplate>
             </ComboBox.ItemTemplate>
