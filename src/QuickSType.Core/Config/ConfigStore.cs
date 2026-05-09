@@ -49,7 +49,16 @@ public class ConfigStore
             {
                 var json = File.ReadAllText(_filePath, Encoding.UTF8);
                 var cfg = JsonSerializer.Deserialize(json, ConfigJsonContext.Default.AppConfig);
-                if (cfg is not null) return cfg;
+                if (cfg is not null)
+                {
+                    if (cfg.SchemaVersion < 3)
+                    {
+                        _log.LogInformation("Migrating config from v{OldVersion} to v3", cfg.SchemaVersion);
+                        cfg = MigrateV2ToV3(cfg);
+                        Save(cfg);
+                    }
+                    return cfg;
+                }
             }
             catch (Exception ex)
             {
@@ -102,6 +111,22 @@ public class ConfigStore
             Hotkey = MapPythonHotkey(legacy.Hotkey),
             AutoLanguage = legacy.AutoLanguage ?? false,
             SchemaVersion = 2,
+        };
+    }
+
+    /// <summary>
+    /// Migrate a v2 AppConfig to v3 by adding the four new fields with documented defaults
+    /// and bumping SchemaVersion. Mirrors <see cref="MigrateFromPython"/> shape.
+    /// </summary>
+    public static AppConfig MigrateV2ToV3(AppConfig v2)
+    {
+        return v2 with
+        {
+            EnableCrashTelemetry = false,
+            KeyboardLayoutDriven = false,
+            StreamingMode = "auto",
+            PreferredModel = null,
+            SchemaVersion = 3,
         };
     }
 
