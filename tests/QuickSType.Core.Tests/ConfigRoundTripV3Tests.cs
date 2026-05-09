@@ -1,0 +1,83 @@
+using System.Text.Json;
+using QuickSType.Core.Config;
+
+namespace QuickSType.Core.Tests;
+
+public class ConfigRoundTripV3Tests
+{
+    [Fact]
+    public void All_v3_fields_round_trip_through_source_gen()
+    {
+        var original = new AppConfig
+        {
+            EnableCrashTelemetry = true,
+            KeyboardLayoutDriven = true,
+            StreamingMode = "cpu",
+            PreferredModel = "ggml-small",
+            SchemaVersion = 3,
+        };
+        var json = JsonSerializer.Serialize(original, ConfigJsonContext.Default.AppConfig);
+        var rt = JsonSerializer.Deserialize(json, ConfigJsonContext.Default.AppConfig);
+        rt.ShouldNotBeNull();
+        rt!.EnableCrashTelemetry.ShouldBeTrue();
+        rt.KeyboardLayoutDriven.ShouldBeTrue();
+        rt.StreamingMode.ShouldBe("cpu");
+        rt.PreferredModel.ShouldBe("ggml-small");
+        rt.SchemaVersion.ShouldBe(3);
+    }
+
+    [Fact]
+    public void Json_property_names_are_snake_case()
+    {
+        var cfg = new AppConfig
+        {
+            EnableCrashTelemetry = true,
+            KeyboardLayoutDriven = true,
+            StreamingMode = "cpu",
+            PreferredModel = "ggml-small",
+        };
+        var json = JsonSerializer.Serialize(cfg, ConfigJsonContext.Default.AppConfig);
+        json.ShouldContain("\"enable_crash_telemetry\"");
+        json.ShouldContain("\"keyboard_layout_driven\"");
+        json.ShouldContain("\"streaming_mode\"");
+        json.ShouldContain("\"preferred_model\"");
+    }
+
+    [Fact]
+    public void WithPreferredModel_sets_PreferredModel_via_with_expression()
+    {
+        var original = new AppConfig();
+        original.PreferredModel.ShouldBeNull();
+        var updated = original.WithPreferredModel("ggml-small");
+        updated.PreferredModel.ShouldBe("ggml-small");
+        // Record semantics: original is unchanged
+        original.PreferredModel.ShouldBeNull();
+    }
+
+    [Fact]
+    public void WithPreferredModel_null_clears_PreferredModel()
+    {
+        var cfg = new AppConfig().WithPreferredModel("ggml-small");
+        var cleared = cfg.WithPreferredModel(null);
+        cleared.PreferredModel.ShouldBeNull();
+    }
+
+    [Fact]
+    public void New_AppConfig_default_SchemaVersion_is_3()
+    {
+        // Pitfall 4: prevents re-migration on every launch
+        new AppConfig().SchemaVersion.ShouldBe(3);
+    }
+
+    [Fact]
+    public void Default_StreamingMode_is_auto()
+    {
+        new AppConfig().StreamingMode.ShouldBe("auto");
+    }
+
+    [Fact]
+    public void Default_PreferredModel_is_null()
+    {
+        new AppConfig().PreferredModel.ShouldBeNull();
+    }
+}
