@@ -8,6 +8,7 @@ using QuickSType.Core.Hotkey;
 using QuickSType.Core.Paste;
 using QuickSType.Core.Platform;
 using QuickSType.Core.Transcribe;
+using System.Drawing;
 
 namespace QuickSType.UI.Composition;
 
@@ -28,6 +29,9 @@ public sealed class AppHost : IDisposable
     public ISystemSpecsService SystemSpecsService { get; }
     public SystemSpecs SystemSpecs { get; }
     public IHistoryService History { get; }
+    public IKeyboardLayoutService KeyboardLayout { get; }
+    public ITrayPositionService TrayPosition { get; }
+    public ISystemThemeService SystemTheme { get; }
 
     private AppHost(
         ConfigStoreWithExists configStore,
@@ -44,7 +48,10 @@ public sealed class AppHost : IDisposable
         ModelDownloader downloader,
         ISystemSpecsService specsService,
         SystemSpecs systemSpecs,
-        IHistoryService history)
+        IHistoryService history,
+        IKeyboardLayoutService keyboardLayout,
+        ITrayPositionService trayPosition,
+        ISystemThemeService systemTheme)
     {
         ConfigStore = configStore;
         Config = config;
@@ -61,6 +68,9 @@ public sealed class AppHost : IDisposable
         SystemSpecsService = specsService;
         SystemSpecs = systemSpecs;
         History = history;
+        KeyboardLayout = keyboardLayout;
+        TrayPosition = trayPosition;
+        SystemTheme = systemTheme;
     }
 
     public static AppHost Create()
@@ -93,6 +103,9 @@ public sealed class AppHost : IDisposable
         INotificationService notify;
         IPermissionService permissions;
         IAutoLaunchService autoLaunch;
+        IKeyboardLayoutService keyboardLayout;
+        ITrayPositionService trayPosition;
+        ISystemThemeService systemTheme;
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
@@ -100,6 +113,9 @@ public sealed class AppHost : IDisposable
             notify = new Platform.Mac.MacNotifications(lf.CreateLogger<Platform.Mac.MacNotifications>());
             permissions = new Platform.Mac.MacPermissions(lf.CreateLogger<Platform.Mac.MacPermissions>());
             autoLaunch = new Platform.Mac.MacAutoLaunch(lf.CreateLogger<Platform.Mac.MacAutoLaunch>());
+            keyboardLayout = new Platform.Mac.MacKeyboardLayoutService(lf.CreateLogger<Platform.Mac.MacKeyboardLayoutService>());
+            trayPosition = new Platform.Mac.MacTrayPositionService(lf.CreateLogger<Platform.Mac.MacTrayPositionService>());
+            systemTheme = new Platform.Mac.MacSystemThemeService(lf.CreateLogger<Platform.Mac.MacSystemThemeService>());
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
@@ -107,6 +123,9 @@ public sealed class AppHost : IDisposable
             notify = new Platform.Windows.WindowsNotifications(lf.CreateLogger<Platform.Windows.WindowsNotifications>());
             permissions = new Platform.Windows.WindowsPermissions(lf.CreateLogger<Platform.Windows.WindowsPermissions>());
             autoLaunch = new Platform.Windows.WindowsAutoLaunch();
+            keyboardLayout = new Platform.Windows.WindowsKeyboardLayoutService(lf.CreateLogger<Platform.Windows.WindowsKeyboardLayoutService>());
+            trayPosition = new Platform.Windows.WindowsTrayPositionService(lf.CreateLogger<Platform.Windows.WindowsTrayPositionService>());
+            systemTheme = new Platform.Windows.WindowsSystemThemeService(lf.CreateLogger<Platform.Windows.WindowsSystemThemeService>());
         }
         else
         {
@@ -114,6 +133,9 @@ public sealed class AppHost : IDisposable
             notify = new NoopNotifications();
             permissions = new NoopPermissions();
             autoLaunch = new NoopAutoLaunch();
+            keyboardLayout = new NoopKeyboardLayoutService();
+            trayPosition = new NoopTrayPositionService();
+            systemTheme = new NoopSystemThemeService();
         }
 
         var hotkey = new HotkeyService(config.Hotkey, lf.CreateLogger<HotkeyService>());
@@ -128,7 +150,8 @@ public sealed class AppHost : IDisposable
         return new AppHost(
             configStore, config, audio, transcriber, paste, notify, permissions, autoLaunch,
             hotkey, engine, lf, downloader,
-            specsService, systemSpecs, historyService);
+            specsService, systemSpecs, historyService,
+            keyboardLayout, trayPosition, systemTheme);
     }
 
     public event Action<AppConfig>? ConfigChanged;
@@ -152,6 +175,9 @@ public sealed class AppHost : IDisposable
     {
         Engine.Dispose();
         Hotkey.Dispose();
+        (KeyboardLayout as IDisposable)?.Dispose();
+        (TrayPosition as IDisposable)?.Dispose();
+        (SystemTheme as IDisposable)?.Dispose();
         LoggerFactory.Dispose();
     }
 }
@@ -191,4 +217,25 @@ internal sealed class NoopAutoLaunch : IAutoLaunchService
 {
     public bool IsEnabled() => false;
     public void SetEnabled(bool enabled, string? executablePath = null) { }
+}
+
+internal sealed class NoopKeyboardLayoutService : IKeyboardLayoutService
+{
+#pragma warning disable CS0067
+    public event Action<InputLayout>? LayoutChanged;
+#pragma warning restore CS0067
+    public InputLayout CurrentLayout => new("—", "");
+}
+
+internal sealed class NoopTrayPositionService : ITrayPositionService
+{
+    public Rectangle GetTrayRect() => Rectangle.Empty;
+}
+
+internal sealed class NoopSystemThemeService : ISystemThemeService
+{
+#pragma warning disable CS0067
+    public event Action<AppTheme>? Changed;
+#pragma warning restore CS0067
+    public AppTheme Current => new(false, "#007AFF");
 }

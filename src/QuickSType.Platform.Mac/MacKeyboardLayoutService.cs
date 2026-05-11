@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -5,29 +6,21 @@ using QuickSType.Core.Platform;
 
 namespace QuickSType.Platform.Mac;
 
-// RISK: kTISNotifySelectedKeyboardInputSourceChanged is an observed/empirical constant,
-// not a documented public API. If removed in a future macOS version, this service degrades
-// to polling fallback.
+// macOS 26 (Sequoia 2 / 2026) removed the HIToolbox dylib binary.
+// TISCopyCurrentKeyboardInputSource and friends no longer exist as loadable symbols.
+// We use `defaults read` against the HIToolbox plist instead.
 public sealed partial class MacKeyboardLayoutService : IKeyboardLayoutService, IDisposable
 {
-    private const string HIToolboxLib = "/System/Library/Frameworks/Carbon.framework/Frameworks/HIToolbox.framework/HIToolbox";
     private const string CoreFoundationLib = "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation";
 
-    private static readonly IntPtr s_localizedNameKey;
-    private static readonly IntPtr s_inputSourceIDKey;
-    private static readonly IntPtr s_distributedCenter;
+    // Literal string value of kTISNotifySelectedKeyboardInputSourceChanged.
+    // COULD-BREAK: undocumented constant; verified against macOS 14 headers.
+    private const string TISNotificationName = "com.apple.Carbon.TISNotifySelectedKeyboardInputSourceChanged";
 
     private readonly ILogger _log;
     private readonly CFNotificationCallback _callback;
+    private readonly Timer _pollTimer;
     private InputLayout _current;
-
-    static MacKeyboardLayoutService()
-    {
-        var hitoolbox = NativeLibrary.Load(HIToolboxLib);
-        s_localizedNameKey = NativeLibrary.GetExport(hitoolbox, "kTISPropertyLocalizedName");
-        s_inputSourceIDKey = NativeLibrary.GetExport(hitoolbox, "kTISPropertyInputSourceID");
-        s_distributedCenter = CFNotificationCenterGetDistributedCenter();
-    }
 
     public MacKeyboardLayoutService(ILogger<MacKeyboardLayoutService>? log = null)
     {
@@ -35,12 +28,13 @@ public sealed partial class MacKeyboardLayoutService : IKeyboardLayoutService, I
         _callback = OnLayoutNotification;
         _current = QueryCurrentLayout();
 
-        var name = CFStringCreateWithCString(IntPtr.Zero,
-            "kTISNotifySelectedKeyboardInputSourceChanged", 0x08000100u);
+        // CFNotificationCenter for real-time notification when it works.
+        // Falls back to 1s polling if the notification name changes in a future macOS.
+        var name = CFStringCreateWithCString(IntPtr.Zero, TISNotificationName, 0x08000100u);
         if (name != IntPtr.Zero)
         {
             CFNotificationCenterAddObserver(
-                s_distributedCenter,
+                CFNotificationCenterGetDistributedCenter(),
                 IntPtr.Zero,
                 _callback,
                 name,
@@ -48,6 +42,11 @@ public sealed partial class MacKeyboardLayoutService : IKeyboardLayoutService, I
                 (int)CFNotificationSuspensionBehavior.DeliverImmediately);
             CFRelease(name);
         }
+
+        // Polling safety net (500ms). Cheap — layout changes are rare.
+        _pollTimer = new Timer(_ => OnLayoutNotification(
+            IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero),
+            null, 500, 500);
     }
 
     public InputLayout CurrentLayout => _current;
@@ -55,27 +54,101 @@ public sealed partial class MacKeyboardLayoutService : IKeyboardLayoutService, I
 
     private InputLayout QueryCurrentLayout()
     {
-        var src = TISCopyCurrentKeyboardInputSource();
-        if (src == IntPtr.Zero)
-        {
-            _log.LogWarning("TISCopyCurrentKeyboardInputSource returned null");
-            return new InputLayout("—", "");
-        }
-
         try
         {
-            var displayNamePtr = TISGetInputSourceProperty(src, s_localizedNameKey);
-            var displayName = CFStringToString(displayNamePtr) ?? "—";
-
-            var codePtr = TISGetInputSourceProperty(src, s_inputSourceIDKey);
-            var rawCode = CFStringToString(codePtr) ?? "";
-
-            return new InputLayout(displayName, ExtractLayoutCode(rawCode));
+            var (displayName, layoutId) = ReadLayoutFromDefaults();
+            var code = MapLayoutToCode(layoutId, displayName);
+            return new InputLayout(displayName, code);
         }
-        finally
+        catch (Exception ex)
         {
-            CFRelease(src);
+            _log.LogWarning(ex, "Failed to read keyboard layout from defaults");
+            return new InputLayout("--", "");
         }
+    }
+
+    private static (string name, int id) ReadLayoutFromDefaults()
+    {
+        using var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = "/usr/bin/defaults",
+                Arguments = "read ~/Library/Preferences/com.apple.HIToolbox.plist AppleSelectedInputSources",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            }
+        };
+
+        process.Start();
+        var output = process.StandardOutput.ReadToEnd();
+        process.WaitForExit(2000);
+
+        // Find the first "Keyboard Layout" entry:
+        //   InputSourceKind = "Keyboard Layout";
+        //   "KeyboardLayout Name" = ABC;
+        //   "KeyboardLayout ID" = 252;
+        var lines = output.Split('\n');
+        for (int i = 0; i < lines.Length; i++)
+        {
+            if (lines[i].Contains("Keyboard Layout"))
+            {
+                string name = "";
+                int id = 0;
+
+                for (int j = i; j < Math.Min(i + 5, lines.Length); j++)
+                {
+                    var line = lines[j];
+                    if (line.Contains("KeyboardLayout Name"))
+                        name = ExtractPlistValue(line);
+                    else if (line.Contains("KeyboardLayout ID"))
+                        int.TryParse(ExtractPlistValue(line), out id);
+                }
+
+                if (!string.IsNullOrEmpty(name))
+                    return (name, id);
+            }
+        }
+
+        return ("--", 0);
+    }
+
+    private static string ExtractPlistValue(string line)
+    {
+        var eq = line.IndexOf('=');
+        if (eq < 0) return "";
+        return line[(eq + 1)..].Trim().TrimEnd(';').Trim('"');
+    }
+
+    private static string MapLayoutToCode(int layoutId, string displayName)
+    {
+        var code = layoutId switch
+        {
+            0 => "en-US",       // ABC (default, reported as 0 on some versions)
+            252 => "en-US",     // ABC
+            -2 => "en-US",      // U.S.
+            -10000 => "ar",     // Arabic
+            -18944 => "he",     // Hebrew
+            -23552 => "ru",     // Russian
+            -26624 => "zh-Hans", // Chinese Simplified
+            -27008 => "zh-Hant", // Chinese Traditional
+            -14848 => "ja",     // Japanese
+            -15360 => "ko",     // Korean
+            _ => "",
+        };
+
+        if (!string.IsNullOrEmpty(code)) return code;
+
+        return displayName switch
+        {
+            "ABC" => "en-US",
+            "Arabic" => "ar",
+            "Hebrew" => "he",
+            "Russian" => "ru",
+            _ => "",
+        };
     }
 
     private void OnLayoutNotification(IntPtr center, IntPtr observer, IntPtr name, IntPtr obj, IntPtr userInfo)
@@ -83,10 +156,12 @@ public sealed partial class MacKeyboardLayoutService : IKeyboardLayoutService, I
         try
         {
             var newLayout = QueryCurrentLayout();
-            _current = newLayout;
-
-            try { LayoutChanged?.Invoke(newLayout); }
-            catch (Exception ex) { _log.LogError(ex, "LayoutChanged handler threw"); }
+            if (!newLayout.Equals(_current))
+            {
+                _current = newLayout;
+                try { LayoutChanged?.Invoke(newLayout); }
+                catch (Exception ex) { _log.LogError(ex, "LayoutChanged handler threw"); }
+            }
         }
         catch (Exception ex)
         {
@@ -96,34 +171,10 @@ public sealed partial class MacKeyboardLayoutService : IKeyboardLayoutService, I
 
     public void Dispose()
     {
-        CFNotificationCenterRemoveEveryObserver(s_distributedCenter, IntPtr.Zero);
-    }
-
-    private static string ExtractLayoutCode(string rawCode)
-    {
-        var parts = rawCode.Split('.');
-        return parts.Length > 0 ? parts[^1] : rawCode;
-    }
-
-    private static string? CFStringToString(IntPtr cfString)
-    {
-        if (cfString == IntPtr.Zero) return null;
-
-        var ptr = CFStringGetCStringPtr(cfString, 0x08000100u);
-        if (ptr != IntPtr.Zero)
-            return Marshal.PtrToStringUTF8(ptr);
-
-        var length = CFStringGetLength(cfString);
-        if (length <= 0) return null;
-
-        var maxSize = length * 4 + 64;
-        var buffer = new byte[maxSize];
-        if (CFStringGetCString(cfString, buffer, maxSize, 0x08000100u))
-        {
-            var nullIndex = Array.IndexOf<byte>(buffer, 0);
-            return System.Text.Encoding.UTF8.GetString(buffer, 0, nullIndex > 0 ? nullIndex : buffer.Length);
-        }
-        return null;
+        _pollTimer.Dispose();
+        var center = CFNotificationCenterGetDistributedCenter();
+        if (center != IntPtr.Zero)
+            CFNotificationCenterRemoveEveryObserver(center, IntPtr.Zero);
     }
 
     private delegate void CFNotificationCallback(IntPtr center, IntPtr observer, IntPtr name, IntPtr obj, IntPtr userInfo);
@@ -145,20 +196,4 @@ public sealed partial class MacKeyboardLayoutService : IKeyboardLayoutService, I
 
     [LibraryImport(CoreFoundationLib)]
     private static partial void CFRelease(IntPtr obj);
-
-    [DllImport(CoreFoundationLib)]
-    private static extern IntPtr CFStringGetCStringPtr(IntPtr theString, uint encoding);
-
-    [DllImport(CoreFoundationLib)]
-    [return: MarshalAs(UnmanagedType.I1)]
-    private static extern bool CFStringGetCString(IntPtr theString, byte[] buffer, nint bufferSize, uint encoding);
-
-    [LibraryImport(CoreFoundationLib)]
-    private static partial nint CFStringGetLength(IntPtr theString);
-
-    [LibraryImport(HIToolboxLib)]
-    private static partial IntPtr TISCopyCurrentKeyboardInputSource();
-
-    [LibraryImport(HIToolboxLib)]
-    private static partial IntPtr TISGetInputSourceProperty(IntPtr source, IntPtr propertyKey);
 }

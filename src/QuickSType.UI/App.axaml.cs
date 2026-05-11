@@ -1,6 +1,8 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Styling;
+using Avalonia.Threading;
 using Microsoft.Extensions.Logging;
 using QuickSType.UI.Composition;
 using QuickSType.UI.Tray;
@@ -23,6 +25,18 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             Host = AppHost.Create();
+
+            // PLAT-05: subscribe to system theme before any UI is shown.
+            // Apply initial theme, then listen for OS-level changes.
+            var initialTheme = Host.SystemTheme.Current;
+            Application.Current!.RequestedThemeVariant = initialTheme.IsDark ? ThemeVariant.Dark : ThemeVariant.Light;
+            Host.SystemTheme.Changed += newTheme =>
+            {
+                Dispatcher.UIThread.Post(() =>
+                {
+                    Application.Current!.RequestedThemeVariant = newTheme.IsDark ? ThemeVariant.Dark : ThemeVariant.Light;
+                });
+            };
 
             // CONFIG-03 / D-04: pre-tray hardware check. If the system can't run any model,
             // show the blocker dialog INSTEAD of installing the tray. The blocker controls

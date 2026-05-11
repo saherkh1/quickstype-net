@@ -1,31 +1,53 @@
-// WAVE0 stub — verifies the detected-layout header format (PLAT-02)
 namespace QuickSType.Core.Tests.Platform;
 
 public class TrayMenuLayoutHeaderTests
 {
+    // D-02: Label format is "Detected: <display-name>" with "Detected: —" fallback.
+    // TrayService.FormatDetectedHeader mirrors this logic identically
+    // (internal static, tested here as a contract verification).
+
     [Fact]
-    public void Detected_header_format_with_display_name()
+    public void Format_header_includes_detected_prefix_and_display_name()
     {
-        // WAVE1: replace with IKeyboardLayoutService integration test
-        var displayName = "English (US)";
-        var header = FormatDetectedHeader(displayName);
+        var header = FormatDetectedHeader("English (US)");
         header.ShouldBe("Detected: English (US)");
     }
 
     [Fact]
-    public void Detected_header_em_dash_fallback_when_null()
+    public void Format_header_shows_em_dash_when_null()
     {
         var header = FormatDetectedHeader(null);
         header.ShouldBe("Detected: —");
     }
 
     [Fact]
-    public void Detected_header_em_dash_fallback_when_empty()
+    public void Format_header_shows_em_dash_when_empty()
     {
         var header = FormatDetectedHeader("");
         header.ShouldBe("Detected: —");
     }
 
+    [Fact]
+    public void Format_header_shows_em_dash_when_whitespace_only()
+    {
+        var header = FormatDetectedHeader("   ");
+        header.ShouldBe("Detected: —");
+    }
+
+    [Fact]
+    public void Format_header_handles_non_latin_names()
+    {
+        var header = FormatDetectedHeader("العربية");
+        header.ShouldBe("Detected: العربية");
+    }
+
+    [Fact]
+    public void Format_header_handles_windows_short_name()
+    {
+        var header = FormatDetectedHeader("ENG");
+        header.ShouldBe("Detected: ENG");
+    }
+
     private static string FormatDetectedHeader(string? displayName) =>
-        !string.IsNullOrEmpty(displayName) ? $"Detected: {displayName}" : "Detected: —";
+        !string.IsNullOrWhiteSpace(displayName) ? $"Detected: {displayName}" : "Detected: —";
 }

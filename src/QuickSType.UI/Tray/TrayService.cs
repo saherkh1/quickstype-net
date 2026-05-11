@@ -25,6 +25,8 @@ public sealed class TrayService
     private NativeMenuItemSeparator? _afterAutoSeparator;
     private NativeMenuItemSeparator? _beforeSettingsSeparator;
     private readonly Dictionary<string, NativeMenuItem> _allLangItems = new(StringComparer.OrdinalIgnoreCase);
+    private NativeMenuItem? _detectedLayoutItem;
+    private NativeMenuItemSeparator? _detectedLayoutSeparator;
     private MainWindow? _mainWindow;
 
     public TrayService(AppHost host)
@@ -33,6 +35,14 @@ public sealed class TrayService
         _log = host.LoggerFactory.CreateLogger<TrayService>();
         _host.Engine.StateChanged += OnStateChanged;
         _host.ConfigChanged += _ => Dispatcher.UIThread.Post(OnConfigChanged);
+        _host.KeyboardLayout.LayoutChanged += layout =>
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (_detectedLayoutItem is not null)
+                    _detectedLayoutItem.Header = FormatDetectedHeader(layout.DisplayName);
+            });
+        };
     }
 
     public void Install(Application app)
@@ -94,6 +104,9 @@ public sealed class TrayService
     {
         _languageSubmenu = new NativeMenu();
 
+        _detectedLayoutItem = new NativeMenuItem(FormatDetectedHeader(_host.KeyboardLayout.CurrentLayout.DisplayName)) { IsEnabled = false };
+        _detectedLayoutSeparator = new NativeMenuItemSeparator();
+
         _autoLangItem = new NativeMenuItem(FormatHeader("Auto-detect", _host.Config.AutoLanguage));
         _autoLangItem.Click += (_, _) =>
         {
@@ -129,6 +142,8 @@ public sealed class TrayService
     {
         if (_languageSubmenu is null) return;
         _languageSubmenu.Items.Clear();
+        _languageSubmenu.Items.Add(_detectedLayoutItem!);
+        _languageSubmenu.Items.Add(_detectedLayoutSeparator!);
         _languageSubmenu.Items.Add(_autoLangItem!);
         _languageSubmenu.Items.Add(_afterAutoSeparator!);
         foreach (var code in _host.Config.Languages)
@@ -170,6 +185,9 @@ public sealed class TrayService
 
     private static string FormatHeader(string label, bool isActive) =>
         (isActive ? "✓ " : "   ") + label;
+
+    internal static string FormatDetectedHeader(string? displayName) =>
+        !string.IsNullOrWhiteSpace(displayName) ? $"Detected: {displayName}" : "Detected: —";
 
     private void OnStateChanged(DictationState state)
     {
