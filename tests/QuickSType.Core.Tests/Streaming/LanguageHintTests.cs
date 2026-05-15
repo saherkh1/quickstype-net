@@ -1,14 +1,23 @@
+using QuickSType.Core;
 using Xunit;
+using Shouldly;
 
 namespace QuickSType.Core.Tests.Streaming;
 
 public class LanguageHintTests
 {
-    [Fact]
-    [Trait("category", "wave-0")]
-    public void Wave0_stub_placeholder_replaced_in_later_wave()
+    [Theory]
+    [InlineData("en-US", "en")]
+    [InlineData("en", "en")]
+    [InlineData("zh-Hans", "zh")]
+    [InlineData("pt-BR", "pt")]
+    [InlineData("EN-us", "en")]
+    [InlineData("xx-YY", null)]
+    [InlineData("", null)]
+    [InlineData(null, null)]
+    [InlineData("  en-US  ", "en")]
+    public void LayoutCodeToWhisperLang_maps_bcp47_to_iso639(string? layoutCode, string? expected)
     {
-        // Wave 0 stub for STREAM-06: keyboard layout code -> Whisper language hint. Replaced with real assertions in Wave 1.
-        Assert.True(true);
+        Languages.LayoutCodeToWhisperLang(layoutCode).ShouldBe(expected);
     }
 }

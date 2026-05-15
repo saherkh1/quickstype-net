@@ -29,4 +29,14 @@ public static class Languages
 
     public static string DisplayFor(string code) =>
         Find(code) is { } info ? info.DisplayName : code.ToUpperInvariant();
+
+    public static string? LayoutCodeToWhisperLang(string? layoutCode)
+    {
+        if (string.IsNullOrWhiteSpace(layoutCode)) return null;
+        var trimmed = layoutCode.Trim();
+        var dash = trimmed.IndexOf('-');
+        var iso = (dash >= 0 ? trimmed[..dash] : trimmed).ToLowerInvariant();
+        if (iso.Length == 0) return null;
+        return Find(iso) is not null ? iso : null;
+    }
 }
