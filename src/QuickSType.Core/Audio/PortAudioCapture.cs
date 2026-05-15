@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Collections.Concurrent;
 using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
@@ -9,11 +10,14 @@ namespace QuickSType.Core.Audio;
 public sealed class PortAudioCapture : IAudioCapture
 {
     private const int FramesPerBuffer = 1024;
+    private const int BufferSeconds = 2;
+    private const int FrameMs = 64;
     private static readonly object InitLock = new();
     private static bool _initialized;
 
     private readonly ILogger _log;
     private readonly ConcurrentQueue<float[]> _chunks = new();
+    private Channel<ReadOnlyMemory<float>>? _channel;
     private PortAudioSharp.Stream? _stream;
     private int _deviceIndex;
     private string? _selectedDeviceName;
@@ -22,7 +26,7 @@ public sealed class PortAudioCapture : IAudioCapture
     public int SampleRate { get; }
     public int Channels { get; }
     public bool IsRecording => _isRecording;
-    public ChannelReader<ReadOnlyMemory<float>>? Frames => null;
+    public ChannelReader<ReadOnlyMemory<float>>? Frames => _channel?.Reader;
 
     public PortAudioCapture(ILogger<PortAudioCapture>? log = null, int sampleRate = 16000, int channels = 1)
     {
@@ -78,6 +82,15 @@ public sealed class PortAudioCapture : IAudioCapture
 
         while (_chunks.TryDequeue(out _)) { }
 
+        _channel = Channel.CreateBounded<ReadOnlyMemory<float>>(new BoundedChannelOptions(
+            capacity: BufferSeconds * 1000 / FrameMs)
+        {
+            FullMode = BoundedChannelFullMode.DropOldest,
+            SingleWriter = true,
+            SingleReader = true,
+            AllowSynchronousContinuations = false,
+        });
+
         var inputParams = new StreamParameters
         {
             device = _deviceIndex,
@@ -105,6 +118,9 @@ public sealed class PortAudioCapture : IAudioCapture
     {
         if (!_isRecording) return [];
 
+        try { _channel?.Writer.TryComplete(); }
+        catch (Exception ex) { _log.LogDebug(ex, "Channel writer complete threw"); }
+
         try
         {
             _stream?.Stop();
@@ -120,6 +136,7 @@ public sealed class PortAudioCapture : IAudioCapture
             _isRecording = false;
         }
 
+        _channel = null;
         return DrainChunks();
     }
 
@@ -149,13 +166,25 @@ public sealed class PortAudioCapture : IAudioCapture
     {
         if (input == IntPtr.Zero) return StreamCallbackResult.Continue;
         var totalSamples = (int)frameCount * Channels;
-        var buffer = new float[totalSamples];
+        var legacy = new float[totalSamples];
         unsafe
         {
             var src = (float*)input.ToPointer();
-            for (int i = 0; i < totalSamples; i++) buffer[i] = src[i];
+            for (int i = 0; i < totalSamples; i++) legacy[i] = src[i];
         }
-        _chunks.Enqueue(buffer);
+        _chunks.Enqueue(legacy);
+
+        // Rent a pooled buffer for the streaming channel.
+        var rented = ArrayPool<float>.Shared.Rent(totalSamples);
+        legacy.CopyTo(rented, 0);
+        var slice = new ReadOnlyMemory<float>(rented, 0, totalSamples);
+        if (_channel is not null && !_channel.Writer.TryWrite(slice))
+        {
+            // TryWrite returns false when the channel is full (DropOldest handles oldest);
+            // still need to return the rented buffer since no consumer will own it.
+            ArrayPool<float>.Shared.Return(rented);
+        }
+
         return StreamCallbackResult.Continue;
     }
 
