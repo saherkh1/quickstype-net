@@ -1,3 +1,5 @@
+using System.Threading.Channels;
+
 namespace QuickSType.Core.Audio;
 
 public interface IAudioCapture : IDisposable
@@ -5,6 +7,7 @@ public interface IAudioCapture : IDisposable
     int SampleRate { get; }
     int Channels { get; }
     bool IsRecording { get; }
+    ChannelReader<ReadOnlyMemory<float>>? Frames { get; }
 
     void Start();
     float[] Stop();

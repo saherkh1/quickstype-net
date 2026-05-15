@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using PortAudioSharp;
@@ -21,6 +22,7 @@ public sealed class PortAudioCapture : IAudioCapture
     public int SampleRate { get; }
     public int Channels { get; }
     public bool IsRecording => _isRecording;
+    public ChannelReader<ReadOnlyMemory<float>>? Frames => null;
 
     public PortAudioCapture(ILogger<PortAudioCapture>? log = null, int sampleRate = 16000, int channels = 1)
     {
