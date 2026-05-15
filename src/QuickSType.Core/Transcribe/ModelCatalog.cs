@@ -48,4 +48,10 @@ public static class ModelCatalog
         Path.Combine(ModelsDirectory(), modelId + ".bin");
 
     public static bool IsInstalled(string modelId) => File.Exists(PathFor(modelId));
+
+    public static string DenyListPathFor(string modelId) =>
+        Path.Combine(ModelsDirectory(), modelId + ".hallucinations.json");
+
+    public static string DenyListUrlFor(string modelId) =>
+        $"{Hf}/{modelId}.hallucinations.json";
 }

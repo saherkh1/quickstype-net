@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using QuickSType.Core.Config;
 
 namespace QuickSType.Core.Transcribe;
 
@@ -131,5 +132,47 @@ public sealed class ModelDownloader
         progress?.Report(new Progress(downloaded, total, 0));
         _log.LogInformation("Downloaded model {Id} to {Path} (sha256 verified)", model.Id, finalPath);
         return finalPath;
+    }
+
+    public async Task<string> DownloadDenyListAsync(ModelInfo model, CancellationToken cancellationToken = default)
+    {
+        var dir = ModelCatalog.ModelsDirectory();
+        Directory.CreateDirectory(dir);
+        var finalPath = ModelCatalog.DenyListPathFor(model.Id);
+        var tmpPath = finalPath + ".tmp";
+        var url = ModelCatalog.DenyListUrlFor(model.Id);
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken).ConfigureAwait(false);
+            if ((int)response.StatusCode == 404)
+            {
+                _log.LogWarning("Hallucinations manifest not found for {Id} at {Url}; writing empty manifest", model.Id, url);
+                await WriteEmptyManifestAsync(finalPath, tmpPath, cancellationToken).ConfigureAwait(false);
+                return finalPath;
+            }
+            response.EnsureSuccessStatusCode();
+            var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+            await File.WriteAllBytesAsync(tmpPath, bytes, cancellationToken).ConfigureAwait(false);
+            File.Move(tmpPath, finalPath, overwrite: true);
+            _log.LogInformation("Downloaded deny-list for {Id} to {Path} ({Bytes} bytes)", model.Id, finalPath, bytes.Length);
+            return finalPath;
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Deny-list fetch failed for {Id}; falling back to empty manifest", model.Id);
+            await WriteEmptyManifestAsync(finalPath, tmpPath, cancellationToken).ConfigureAwait(false);
+            return finalPath;
+        }
+    }
+
+    private static async Task WriteEmptyManifestAsync(string finalPath, string tmpPath, CancellationToken ct)
+    {
+        var manifest = new HallucinationManifest { Version = 1, Phrases = new List<string>() };
+        var json = System.Text.Json.JsonSerializer.Serialize(manifest, ConfigJsonContext.Default.HallucinationManifest);
+        await File.WriteAllTextAsync(tmpPath, json, ct).ConfigureAwait(false);
+        File.Move(tmpPath, finalPath, overwrite: true);
     }
 }

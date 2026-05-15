@@ -25,12 +25,15 @@ public sealed class SystemSpecsService : ISystemSpecsService
     double ISystemSpecsService.MinFreeDiskGb => MinFreeDiskGb;
 
     private readonly ILogger _log;
+    private SystemSpecs? _cached;
 
     public SystemSpecsService(ILogger<SystemSpecsService>? log = null)
         => _log = (ILogger?)log ?? NullLogger.Instance;
 
     public SystemSpecs Detect()
     {
+        if (_cached is not null) return _cached;
+
         // Pitfall 1: TotalAvailableMemoryBytes is the OS-reported physical RAM, not the managed heap.
         var totalRamBytes = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
         var ramGb = totalRamBytes / 1024.0 / 1024.0 / 1024.0;
@@ -62,7 +65,14 @@ public sealed class SystemSpecsService : ISystemSpecsService
             "Detected hardware: {Tier} ({RamGb:F1} GB RAM, {FreeDiskGb:F1} GB free)",
             tier, ramGb, freeGb);
 
-        return new SystemSpecs(ramGb, freeGb, cudaAvailable, tier);
+        _cached = new SystemSpecs(ramGb, freeGb, cudaAvailable, tier);
+        return _cached;
+    }
+
+    public bool IsStreamingCapable()
+    {
+        var specs = Detect();
+        return specs.Tier is HardwareTier.AppleSilicon or HardwareTier.WindowsCuda or HardwareTier.Ram16Plus;
     }
 
     public ModelInfo RecommendModel(SystemSpecs specs) => specs.Tier switch

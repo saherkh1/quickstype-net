@@ -14,6 +14,7 @@ public enum DictationState
 {
     Idle,
     Recording,
+    Streaming,
     Processing,
 }
 
@@ -26,16 +27,25 @@ public sealed class DictationEngine : IDisposable
     private readonly INotificationService _notify;
     private readonly IHistoryService? _history;
     private readonly ConfigStore _configStore;
+    private readonly IStreamingTranscriber? _streamer;
+    private readonly ISystemSpecsService _specs;
+    private readonly IKeyboardLayoutService? _keyboardLayout;
     private AppConfig _config;
     private DictationState _state = DictationState.Idle;
     private CancellationTokenSource? _cts;
+    private bool _degradedThisSession;
+    private string _effectiveMode = "auto";
+    private Task? _streamLoopTask;
 
     public event Action<DictationState>? StateChanged;
     public event Action<string>? Transcribed;
     public event Action<Exception>? Errored;
+    public event Action<TranscriptUpdate>? TranscriptUpdate;
+    public event Action<string>? ModeChanged;
 
     public DictationState State => _state;
     public AppConfig Config => _config;
+    public string EffectiveMode => _effectiveMode;
 
     public DictationEngine(
         IAudioCapture audio,
@@ -45,7 +55,10 @@ public sealed class DictationEngine : IDisposable
         ConfigStore configStore,
         AppConfig config,
         ILogger<DictationEngine>? log = null,
-        IHistoryService? history = null)
+        IHistoryService? history = null,
+        IStreamingTranscriber? streamer = null,
+        ISystemSpecsService? specs = null,
+        IKeyboardLayoutService? keyboardLayout = null)
     {
         _audio = audio;
         _transcriber = transcriber;
@@ -55,15 +68,44 @@ public sealed class DictationEngine : IDisposable
         _configStore = configStore;
         _config = config;
         _log = (ILogger?)log ?? NullLogger.Instance;
+        _streamer = streamer;
+        _specs = specs ?? new NullSystemSpecs();
+        _keyboardLayout = keyboardLayout;
 
         _audio.SelectInputDevice(_config.SelectedAudioDevice);
+
+        if (_streamer is not null)
+            _streamer.DegradeRequested += OnDegradeRequested;
     }
 
     public void UpdateConfig(AppConfig cfg)
     {
+        var oldMode = _config.StreamingMode;
         _config = cfg;
         _audio.SelectInputDevice(cfg.SelectedAudioDevice);
         _configStore.Save(cfg);
+        if (cfg.StreamingMode != oldMode && cfg.StreamingMode != "commit-on-pause")
+        {
+            _degradedThisSession = false;
+            _log.LogInformation("StreamingMode changed; cleared degraded-this-session flag");
+        }
+    }
+
+    internal string ResolveEffectiveMode()
+    {
+        if (_config.StreamingMode == "commit-on-pause") return "commit-on-pause";
+        if (_degradedThisSession) return "commit-on-pause";
+        if (_config.StreamingMode == "streaming") return "streaming";
+        return _specs.IsStreamingCapable() ? "streaming" : "commit-on-pause";
+    }
+
+    internal AppConfig ApplyLayoutLanguageHint(AppConfig cfg)
+    {
+        if (!cfg.KeyboardLayoutDriven || _keyboardLayout is null) return cfg;
+        var code = _keyboardLayout.CurrentLayout.Code;
+        var mapped = Languages.LayoutCodeToWhisperLang(code);
+        if (string.IsNullOrEmpty(mapped)) return cfg;
+        return cfg with { ActiveLanguage = mapped, AutoLanguage = false };
     }
 
     public void OnHotkeyPressed()
@@ -74,10 +116,29 @@ public sealed class DictationEngine : IDisposable
             return;
         }
 
+        var effective = ResolveEffectiveMode();
+        if (effective != _effectiveMode)
+        {
+            _effectiveMode = effective;
+            try { ModeChanged?.Invoke(_effectiveMode); }
+            catch (Exception ex) { _log.LogError(ex, "ModeChanged handler threw"); }
+        }
+
         try
         {
             _audio.Start();
-            SetState(DictationState.Recording);
+            if (effective == "streaming" && _streamer is not null && _audio.Frames is { } frames)
+            {
+                SetState(DictationState.Streaming);
+                _cts?.Cancel();
+                _cts = new CancellationTokenSource();
+                var snapshot = ApplyLayoutLanguageHint(_config);
+                _streamLoopTask = StreamLoopAsync(frames, _audio.SampleRate, snapshot, _cts.Token);
+            }
+            else
+            {
+                SetState(DictationState.Recording);
+            }
             _ = _notify.PlayStartAsync();
         }
         catch (Exception ex)
@@ -89,6 +150,17 @@ public sealed class DictationEngine : IDisposable
 
     public void OnHotkeyReleased()
     {
+        if (_state == DictationState.Streaming)
+        {
+            // B3: complete channel via _audio.Stop() — NOT _cts.Cancel()
+            try { _audio.Stop(); }
+            catch (Exception ex) { _log.LogError(ex, "Stop on streaming release threw"); }
+            _ = _notify.PlayStopAsync();
+            SetState(DictationState.Processing);
+            _ = AwaitStreamCompletionAsync();
+            return;
+        }
+
         if (_state != DictationState.Recording)
         {
             _log.LogDebug("Release ignored; state is {State}", _state);
@@ -102,6 +174,63 @@ public sealed class DictationEngine : IDisposable
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
         _ = ProcessAsync(samples, _cts.Token);
+    }
+
+    private async Task StreamLoopAsync(
+        System.Threading.Channels.ChannelReader<ReadOnlyMemory<float>> frames,
+        int sampleRate,
+        AppConfig snapshot,
+        CancellationToken ct)
+    {
+        try
+        {
+            await foreach (var update in _streamer!.RunAsync(frames, sampleRate, snapshot, ct).ConfigureAwait(false))
+            {
+                try { TranscriptUpdate?.Invoke(update); }
+                catch (Exception ex) { _log.LogError(ex, "TranscriptUpdate handler threw"); }
+            }
+        }
+        catch (OperationCanceledException) { /* expected on timeout-cancel fallback */ }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Streaming loop failed");
+            Errored?.Invoke(ex);
+        }
+    }
+
+    private async Task AwaitStreamCompletionAsync()
+    {
+        var loop = _streamLoopTask;
+        if (loop is null) { SetState(DictationState.Idle); return; }
+        try
+        {
+            var winner = await Task.WhenAny(loop, Task.Delay(TimeSpan.FromSeconds(5))).ConfigureAwait(false);
+            if (winner != loop)
+            {
+                _log.LogWarning("Stream loop did not complete within timeout; cancelling");
+                _cts?.Cancel();
+                try { await loop.ConfigureAwait(false); } catch { /* observed */ }
+            }
+        }
+        catch (Exception ex) { _log.LogError(ex, "AwaitStreamCompletionAsync threw"); }
+        finally
+        {
+            _streamLoopTask = null;
+            SetState(DictationState.Idle);
+        }
+    }
+
+    private void OnDegradeRequested()
+    {
+        _degradedThisSession = true;
+        var newMode = "commit-on-pause";
+        if (newMode != _effectiveMode)
+        {
+            _effectiveMode = newMode;
+            _log.LogWarning("Auto-degrade triggered; effective mode is now {Mode}", _effectiveMode);
+            try { ModeChanged?.Invoke(_effectiveMode); }
+            catch (Exception ex) { _log.LogError(ex, "ModeChanged handler threw"); }
+        }
     }
 
     private async Task ProcessAsync(float[] samples, CancellationToken ct)
@@ -183,9 +312,23 @@ public sealed class DictationEngine : IDisposable
 
     public void Dispose()
     {
+        if (_streamer is not null) _streamer.DegradeRequested -= OnDegradeRequested;
+        _streamer?.Dispose();
         _cts?.Cancel();
         _cts?.Dispose();
         _audio.Dispose();
         _transcriber.Dispose();
+    }
+
+    // Null implementation — used when no ISystemSpecsService is injected.
+    private sealed class NullSystemSpecs : ISystemSpecsService
+    {
+        public SystemSpecs Detect() => new(0.0, 0.0, false, HardwareTier.LowResource);
+        public ModelInfo RecommendModel(SystemSpecs specs) => ModelCatalog.Default;
+        public string? GetHardwareWarning(ModelInfo model, SystemSpecs specs) => null;
+        public bool IsBlocker(SystemSpecs specs) => false;
+        public bool IsStreamingCapable() => false;
+        public double MinRamGb => 2.0;
+        public double MinFreeDiskGb => 1.0;
     }
 }

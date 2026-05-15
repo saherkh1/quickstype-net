@@ -50,6 +50,9 @@ public interface ISystemSpecsService
     /// <summary>True iff the host cannot run even the smallest model (RAM &lt; MinRamGb or free disk &lt; MinFreeDiskGb). Drives the pre-tray blocker dialog.</summary>
     bool IsBlocker(SystemSpecs specs);
 
+    /// <summary>True iff the host is capable of streaming (low-latency) transcription. Drives the auto streaming-mode decision.</summary>
+    bool IsStreamingCapable();
+
     /// <summary>Minimum RAM (GiB) required to run the smallest model.</summary>
     double MinRamGb { get; }
     /// <summary>Minimum free disk (GiB) required to run the smallest model.</summary>
