@@ -18,6 +18,7 @@ public sealed class TrayService
     private TrayIcon? _trayIcon;
     private NativeMenu? _menu;
     private NativeMenuItem? _stateItem;
+    private NativeMenuItem? _modeItem;
     private NativeMenuItem? _languageRoot;
     private NativeMenu? _languageSubmenu;
     private NativeMenuItem? _autoLangItem;
@@ -43,6 +44,19 @@ public sealed class TrayService
                     _detectedLayoutItem.Header = FormatDetectedHeader(layout.DisplayName);
             });
         };
+        _host.Engine.ModeChanged += effective =>
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (_modeItem is not null)
+                    _modeItem.Header = FormatModeHeader(effective, IsAutoDegraded(effective));
+            });
+        };
+        _host.ConfigChanged += _ => Dispatcher.UIThread.Post(() =>
+        {
+            if (_modeItem is not null)
+                _modeItem.Header = FormatModeHeader(_host.Engine.EffectiveMode, IsAutoDegraded(_host.Engine.EffectiveMode));
+        });
     }
 
     public void Install(Application app)
@@ -66,6 +80,8 @@ public sealed class TrayService
 
         _stateItem = new NativeMenuItem("● Idle") { IsEnabled = false };
         menu.Add(_stateItem);
+        _modeItem = new NativeMenuItem(FormatModeHeader(_host.Engine.EffectiveMode, IsAutoDegraded(_host.Engine.EffectiveMode))) { IsEnabled = false };
+        menu.Add(_modeItem);
         menu.Add(new NativeMenuItemSeparator());
 
         var settings = new NativeMenuItem("Open QuickSType…");
@@ -189,6 +205,16 @@ public sealed class TrayService
     internal static string FormatDetectedHeader(string? displayName) =>
         !string.IsNullOrWhiteSpace(displayName) ? $"Detected: {displayName}" : "Detected: —";
 
+    internal static string FormatModeHeader(string effectiveMode, bool isAutoDegraded)
+    {
+        if (effectiveMode == "streaming") return "Mode: Streaming";
+        if (effectiveMode == "commit-on-pause" && isAutoDegraded) return "Mode: Commit-on-pause (hardware)";
+        return "Mode: Commit-on-pause";
+    }
+
+    private bool IsAutoDegraded(string effectiveMode) =>
+        effectiveMode == "commit-on-pause" && _host.Config.StreamingMode != "commit-on-pause";
+
     private void OnStateChanged(DictationState state)
     {
         Dispatcher.UIThread.Post(() =>
@@ -200,6 +226,7 @@ public sealed class TrayService
                     DictationState.Idle => "● Idle",
                     DictationState.Recording => "● Recording…",
                     DictationState.Processing => "● Transcribing…",
+                    DictationState.Streaming => "● Streaming…",
                     _ => "● Idle",
                 };
             }
@@ -209,6 +236,7 @@ public sealed class TrayService
                 {
                     DictationState.Recording => "recording",
                     DictationState.Processing => "processing",
+                    DictationState.Streaming => "recording",
                     _ => "idle",
                 });
             }

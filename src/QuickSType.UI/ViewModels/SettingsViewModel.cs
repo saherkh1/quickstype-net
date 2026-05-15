@@ -26,6 +26,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _activeLanguageDisplay = string.Empty;
     [ObservableProperty] private string? _selectedAudioDevice;
     [ObservableProperty] private string _transcriptionBackend;
+    [ObservableProperty] private string _streamingMode;
     [ObservableProperty] private bool _showNotifications;
     [ObservableProperty] private bool _startAtLogin;
     [ObservableProperty] private string _testTranscriptionResult = string.Empty;
@@ -40,6 +41,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     public ObservableCollection<AudioDeviceInfo> AudioDevices { get; }
     public ObservableCollection<LanguageRow> AvailableLanguages { get; }
     public ObservableCollection<string> Backends { get; } = new() { "auto", "cpu", "metal", "cuda" };
+    public ObservableCollection<StreamingModeOption> StreamingModes { get; } = new()
+    {
+        new("auto", "Auto (recommended)"),
+        new("streaming", "Always stream"),
+        new("commit-on-pause", "Commit on pause"),
+    };
 
     public SettingsViewModel(AppHost host)
     {
@@ -84,6 +91,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _autoLanguage = c.AutoLanguage;
         _selectedAudioDevice = c.SelectedAudioDevice;
         _transcriptionBackend = c.TranscriptionBackend;
+        _streamingMode = c.StreamingMode;
         _showNotifications = c.ShowNotifications;
         _startAtLogin = host.AutoLaunch.IsEnabled();
 
@@ -225,6 +233,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     private void SaveBackend() => Save(c => c with { TranscriptionBackend = TranscriptionBackend });
 
     [RelayCommand]
+    private void SaveMode() => Save(c => c with { StreamingMode = StreamingMode });
+
+    [RelayCommand]
     private void ToggleStartAtLogin()
     {
         StartAtLogin = !StartAtLogin;
@@ -276,6 +287,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         _host.UpdateConfig(newCfg);
     }
 }
+
+public sealed record StreamingModeOption(string Value, string Display);
 
 public sealed partial class LanguageRow : ObservableObject
 {

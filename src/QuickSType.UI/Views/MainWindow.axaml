@@ -77,6 +77,22 @@
           </StackPanel>
 
           <StackPanel Spacing="6">
+            <TextBlock Classes="h2" Text="Streaming mode" />
+            <ComboBox ItemsSource="{Binding StreamingModes}"
+                      SelectedValue="{Binding StreamingMode}"
+                      SelectedValueBinding="{Binding Value}"
+                      HorizontalAlignment="Stretch">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:StreamingModeOption">
+                  <TextBlock Text="{Binding Display}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <Button Content="Save mode" Command="{Binding SaveModeCommand}" HorizontalAlignment="Left" />
+            <TextBlock Classes="muted" Text="Auto starts streaming if your hardware supports it and falls back automatically. Always stream ignores the hardware check. Commit on pause decodes only when you release the hotkey." />
+          </StackPanel>
+
+          <StackPanel Spacing="6">
             <TextBlock Classes="h2" Text="Startup" />
             <CheckBox Content="Show transcription notifications" IsChecked="{Binding ShowNotifications}"
                       Command="{Binding ToggleNotificationsCommand}" />

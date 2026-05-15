@@ -32,6 +32,8 @@ public sealed class AppHost : IDisposable
     public IKeyboardLayoutService KeyboardLayout { get; }
     public ITrayPositionService TrayPosition { get; }
     public ISystemThemeService SystemTheme { get; }
+    public IStreamingTranscriber? Streamer { get; }
+    public string EffectiveMode => Engine.EffectiveMode;
 
     private AppHost(
         ConfigStoreWithExists configStore,
@@ -51,7 +53,8 @@ public sealed class AppHost : IDisposable
         IHistoryService history,
         IKeyboardLayoutService keyboardLayout,
         ITrayPositionService trayPosition,
-        ISystemThemeService systemTheme)
+        ISystemThemeService systemTheme,
+        IStreamingTranscriber? streamer)
     {
         ConfigStore = configStore;
         Config = config;
@@ -71,6 +74,7 @@ public sealed class AppHost : IDisposable
         KeyboardLayout = keyboardLayout;
         TrayPosition = trayPosition;
         SystemTheme = systemTheme;
+        Streamer = streamer;
     }
 
     public static AppHost Create()
@@ -98,6 +102,28 @@ public sealed class AppHost : IDisposable
         var audio = new PortAudioCapture(lf.CreateLogger<PortAudioCapture>());
         var transcriber = new Transcriber(lf.CreateLogger<Transcriber>());
         var downloader = new ModelDownloader(lf.CreateLogger<ModelDownloader>());
+
+        IStreamingTranscriber? streamer = null;
+        var streamingActive = config.StreamingMode != "commit-on-pause"
+            && (config.StreamingMode == "streaming" || specsService.IsStreamingCapable());
+
+        if (streamingActive)
+        {
+            var vad = new VadGate(sampleRate: 16000, threshold: 0.5f, log: lf.CreateLogger<VadGate>());
+            var manifest = HallucinationManifestLoader.Load(config.Model, lf.CreateLogger("HallucinationManifestLoader"));
+            var filter = new HallucinationFilter(manifest);
+            streamer = new StreamingPipeline(vad, filter, lf.CreateLogger<StreamingPipeline>());
+        }
+
+        {
+            var modelPath = ModelCatalog.PathFor(config.Model);
+            if (streamer is StreamingPipeline sp && File.Exists(modelPath))
+            {
+                var useGpu = config.TranscriptionBackend != "cpu";
+                try { sp.EnsureLoaded(modelPath, useGpu); }
+                catch (Exception ex) { lf.CreateLogger<AppHost>().LogWarning(ex, "Streaming pipeline EnsureLoaded failed; falling back at press time"); }
+            }
+        }
 
         IPasteService paste;
         INotificationService notify;
@@ -142,16 +168,23 @@ public sealed class AppHost : IDisposable
         var engine = new DictationEngine(
             audio, transcriber, paste, notify, configStore, config,
             log: lf.CreateLogger<DictationEngine>(),
-            history: historyService);
+            history: historyService,
+            streamer: streamer,
+            specs: specsService,
+            keyboardLayout: keyboardLayout);
 
         hotkey.Pressed += engine.OnHotkeyPressed;
         hotkey.Released += engine.OnHotkeyReleased;
+
+        // Best-effort deny-list fetch (fire-and-forget); failure is non-fatal.
+        _ = downloader.DownloadDenyListAsync(ModelCatalog.Find(config.Model) ?? ModelCatalog.Default, CancellationToken.None);
 
         return new AppHost(
             configStore, config, audio, transcriber, paste, notify, permissions, autoLaunch,
             hotkey, engine, lf, downloader,
             specsService, systemSpecs, historyService,
-            keyboardLayout, trayPosition, systemTheme);
+            keyboardLayout, trayPosition, systemTheme,
+            streamer);
     }
 
     public event Action<AppConfig>? ConfigChanged;
@@ -175,6 +208,7 @@ public sealed class AppHost : IDisposable
     {
         Engine.Dispose();
         Hotkey.Dispose();
+        Streamer?.Dispose();
         (KeyboardLayout as IDisposable)?.Dispose();
         (TrayPosition as IDisposable)?.Dispose();
         (SystemTheme as IDisposable)?.Dispose();
