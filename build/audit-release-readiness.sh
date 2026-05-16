@@ -64,6 +64,22 @@ check_release() {
   fi
 }
 
+check_release_evidence() {
+  local evidence="$1"
+
+  if [[ ! -s "$evidence" ]]; then
+    fail "Release evidence is missing: $evidence"
+    return
+  fi
+
+  if grep -Eq '^- \[ \]' "$evidence"; then
+    fail "Release evidence has incomplete manual sign-off: $evidence"
+    return
+  fi
+
+  pass "Release evidence exists with completed manual sign-off: $evidence"
+}
+
 echo "Auditing QuickSType release readiness for $repo"
 
 require_command gh || true
@@ -143,11 +159,7 @@ for evidence in \
   .planning/release-evidence-v0.99.0.md \
   .planning/release-evidence-v0.99.1.md \
   .planning/release-evidence-v1.0.0.md; do
-  if [[ -s "$evidence" ]]; then
-    pass "Release evidence exists: $evidence"
-  else
-    fail "Release evidence is missing: $evidence"
-  fi
+  check_release_evidence "$evidence"
 done
 
 if [[ -f distribution/homebrew/quickstype.rb ]]; then

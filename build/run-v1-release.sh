@@ -69,16 +69,27 @@ require_clean_manual_matrix() {
   fi
 }
 
+require_release_evidence_signoff() {
+  local file="$1"
+
+  if [[ ! -s "$file" ]]; then
+    echo "Required canary evidence is missing: ${file#$repo_root/}" >&2
+    return 1
+  fi
+
+  if grep -Eq '^- \[ \]' "$file"; then
+    echo "Required canary evidence has incomplete manual sign-off: ${file#$repo_root/}" >&2
+    return 1
+  fi
+}
+
 verify_v1_release_gate() {
   local failures=0
 
   for required_evidence in \
     "$repo_root/.planning/release-evidence-v0.99.0.md" \
     "$repo_root/.planning/release-evidence-v0.99.1.md"; do
-    if [[ ! -s "$required_evidence" ]]; then
-      echo "Required canary evidence is missing: ${required_evidence#$repo_root/}" >&2
-      failures=$((failures + 1))
-    fi
+    require_release_evidence_signoff "$required_evidence" || failures=$((failures + 1))
   done
 
   require_clean_manual_matrix "$repo_root/tests/manual/UPDATE_CANARY_MATRIX.md" "Canary update matrix" '^UPDATE-CANARY-[0-9]+$' || failures=$((failures + 1))
