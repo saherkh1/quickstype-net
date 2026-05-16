@@ -80,4 +80,30 @@ public class ConfigRoundTripV3Tests
     {
         new AppConfig().PreferredModel.ShouldBeNull();
     }
+
+    [Fact]
+    public void EnableVibrancy_defaults_to_null()
+    {
+        new AppConfig().EnableVibrancy.ShouldBeNull();
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void EnableVibrancy_round_trips_through_source_gen(bool? value)
+    {
+        var cfg = new AppConfig { EnableVibrancy = value };
+        var json = System.Text.Json.JsonSerializer.Serialize(cfg, ConfigJsonContext.Default.AppConfig);
+        var rt = System.Text.Json.JsonSerializer.Deserialize(json, ConfigJsonContext.Default.AppConfig);
+        rt!.EnableVibrancy.ShouldBe(value);
+    }
+
+    [Fact]
+    public void Json_property_name_for_enable_vibrancy_is_snake_case()
+    {
+        var cfg = new AppConfig { EnableVibrancy = true };
+        var json = System.Text.Json.JsonSerializer.Serialize(cfg, ConfigJsonContext.Default.AppConfig);
+        json.ShouldContain("\"enable_vibrancy\"");
+    }
 }
