@@ -30,6 +30,23 @@ if grep -Eq '^- \[ \]' "$evidence"; then
   exit 1
 fi
 
+required_signoffs=(
+  '- [x] macOS package signing identity matches expected Developer ID Application/Installer identities.'
+  '- [x] macOS notarization and stapler validation passed in the release workflow.'
+  '- [x] Windows Azure Artifact Signing completed for publish directory and installer.'
+  "- [x] \`tests/manual/UPDATE_CANARY_MATRIX.md\` rows updated with PASS status plus tester/date/notes evidence."
+  "- [x] \`tests/manual/INJECTION_MATRIX.md\` rows updated with PASS status plus tester/date/notes evidence."
+  "- [x] \`tests/manual/TELEMETRY_MATRIX.md\` rows updated with PASS status plus tester/date/notes evidence."
+  '- [x] Homebrew and Winget manifest generators use the exact URLs and SHA-256 values above.'
+)
+
+for required_signoff in "${required_signoffs[@]}"; do
+  if ! grep -Fxq -- "$required_signoff" "$evidence"; then
+    echo "Release evidence is missing required manual sign-off: $required_signoff" >&2
+    exit 1
+  fi
+done
+
 if grep -Fxq '| Release commit | unknown |' "$evidence"; then
   echo "Release evidence does not identify the release commit: $evidence" >&2
   exit 1
