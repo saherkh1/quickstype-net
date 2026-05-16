@@ -130,7 +130,7 @@ Each platform upload should add the Velopack package output for the selected cha
 - platform full package
 - platform installer/portable artifact
 
-The workflow uses `vpk upload github --merge --publish --pre` so macOS and Windows jobs can attach to the same GitHub Release.
+The workflow uses `vpk upload github --merge --publish` so macOS and Windows jobs can attach to the same GitHub Release. Canary uploads add `--pre`; stable uploads omit it.
 
 ## Collect Release Evidence
 

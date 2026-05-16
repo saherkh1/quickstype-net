@@ -160,16 +160,21 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          .tools/vpk upload github \
-            --outputDir "artifacts/velopack/osx-arm64/$VERSION" \
-            --channel "$CHANNEL" \
-            --repoUrl "https://github.com/${{ github.repository }}" \
-            --token "$GITHUB_TOKEN" \
-            --tag "$TAG" \
-            --releaseName "QuickSType $TAG" \
-            --pre \
-            --merge \
+          upload_args=(
+            github
+            --outputDir "artifacts/velopack/osx-arm64/$VERSION"
+            --channel "$CHANNEL"
+            --repoUrl "https://github.com/${{ github.repository }}"
+            --token "$GITHUB_TOKEN"
+            --tag "$TAG"
+            --releaseName "QuickSType $TAG"
+            --merge
             --publish
+          )
+          if [[ "$CHANNEL" != "stable" ]]; then
+            upload_args+=(--pre)
+          fi
+          .tools/vpk upload "${upload_args[@]}"
 
       - uses: actions/upload-artifact@v7
         with:
@@ -299,16 +304,21 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          .tools/vpk upload github `
-            --outputDir "artifacts/velopack/win-x64/$env:VERSION" `
-            --channel $env:CHANNEL `
-            --repoUrl "https://github.com/${{ github.repository }}" `
-            --token "$env:GITHUB_TOKEN" `
-            --tag "$env:TAG" `
-            --releaseName "QuickSType $env:TAG" `
-            --pre `
-            --merge `
-            --publish
+          $uploadArgs = @(
+            "github",
+            "--outputDir", "artifacts/velopack/win-x64/$env:VERSION",
+            "--channel", $env:CHANNEL,
+            "--repoUrl", "https://github.com/${{ github.repository }}",
+            "--token", "$env:GITHUB_TOKEN",
+            "--tag", "$env:TAG",
+            "--releaseName", "QuickSType $env:TAG",
+            "--merge",
+            "--publish"
+          )
+          if ($env:CHANNEL -ne "stable") {
+            $uploadArgs += "--pre"
+          }
+          .tools/vpk upload @uploadArgs
 
       - uses: actions/upload-artifact@v7
         with:
