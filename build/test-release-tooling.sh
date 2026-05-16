@@ -90,6 +90,12 @@ for matrix in \
   test -s "$repo_root/$matrix"
 done
 
+require_reference "$repo_root/build/run-v1-release.sh" "validate-manual-matrix.sh"
+if grep -Fq "count_table_status" "$repo_root/build/run-v1-release.sh"; then
+  echo "build/run-v1-release.sh must use validate-manual-matrix.sh for strict PASS evidence checks." >&2
+  exit 1
+fi
+
 for evidence in \
   .planning/release-evidence-v0.99.0.md \
   .planning/release-evidence-v0.99.1.md \

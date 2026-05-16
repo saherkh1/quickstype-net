@@ -151,7 +151,7 @@ To run the stable release and immediately generate Homebrew/Winget manifests fro
 bash build/run-v1-release.sh 1.0.0 saherkh1/quickstype-net
 ```
 
-The v1 helper requires `.planning/release-evidence-v0.99.0.md`, `.planning/release-evidence-v0.99.1.md`, completed manual sign-off checkboxes in those canary evidence files, an accepted `tests/manual/UPDATE_CANARY_MATRIX.md`, an accepted `tests/manual/INJECTION_MATRIX.md`, and an accepted `tests/manual/TELEMETRY_MATRIX.md` before dispatching the stable release. It then writes `.planning/release-evidence-v1.0.0.md` and calls `distribution/generate-from-release-evidence.sh` to create `distribution/homebrew/quickstype.rb` and Winget manifest YAML.
+The v1 helper requires `.planning/release-evidence-v0.99.0.md`, `.planning/release-evidence-v0.99.1.md`, completed manual sign-off checkboxes in those canary evidence files, an accepted `tests/manual/UPDATE_CANARY_MATRIX.md`, an accepted `tests/manual/INJECTION_MATRIX.md`, and an accepted `tests/manual/TELEMETRY_MATRIX.md` before dispatching the stable release. Accepted manual matrix rows must be `PASS` with tester/date/notes evidence. It then writes `.planning/release-evidence-v1.0.0.md` and calls `distribution/generate-from-release-evidence.sh` to create `distribution/homebrew/quickstype.rb` and Winget manifest YAML.
 
 If the owner explicitly accepts unresolved manual evidence as a release risk, copy `build/unverified-v1-release-acceptance.template.md` to `.planning/unverified-v1-release-acceptance.md`, fill owner/date/risk, check each accepted scope, and set `QUICKSTYPE_ACCEPT_UNVERIFIED_V1=1` for this command only. To use a different acceptance path, set `QUICKSTYPE_UNVERIFIED_V1_ACCEPTANCE_FILE=/path/to/acceptance.md`.
 
@@ -197,7 +197,7 @@ Before closing Phase 6, Phase 7, or the v1 release goal, run the release-readine
 bash build/audit-release-readiness.sh saherkh1/quickstype-net
 ```
 
-The audit checks the clean git state, remote branch sync, release workflow/secret prerequisites, expected canary and v1 releases, manual matrix status for HUD, canary updates, and telemetry, release evidence files with completed manual sign-offs and successful release workflow proof, generated distribution manifests, and public repository visibility. It fails closed when any required evidence is missing, unsigned-off, or not tied to a successful release workflow run.
+The audit checks the clean git state, remote branch sync, release workflow/secret prerequisites, expected canary and v1 releases, manual matrix status and tester/date/notes evidence for HUD, canary updates, and telemetry, release evidence files with completed manual sign-offs and successful release workflow proof, generated distribution manifests, and public repository visibility. It fails closed when any required evidence is missing, unsigned-off, or not tied to a successful release workflow run.
 
 ## Current Caveats
 
