@@ -80,6 +80,31 @@ check_release_evidence() {
   pass "Release evidence exists with completed manual sign-off: $evidence"
 }
 
+check_head_workflow_success() {
+  local workflow_name="$1"
+  local run
+
+  run="$(gh run list \
+    --repo "$repo" \
+    --commit "$head_sha" \
+    --workflow "$workflow_name" \
+    --limit 1 \
+    --json conclusion,status,url \
+    -q '.[] | "\(.status)|\(.conclusion)|\(.url)"' 2>/dev/null || true)"
+
+  if [[ -z "$run" ]]; then
+    fail "Workflow $workflow_name has no run for local HEAD"
+    return
+  fi
+
+  IFS='|' read -r status conclusion url <<<"$run"
+  if [[ "$status" == "completed" && "$conclusion" == "success" ]]; then
+    pass "Workflow $workflow_name succeeded for local HEAD ($url)"
+  else
+    fail "Workflow $workflow_name is not green for local HEAD (status=$status, conclusion=$conclusion, url=$url)"
+  fi
+}
+
 echo "Auditing QuickSType release readiness for $repo"
 
 require_command gh || true
@@ -107,6 +132,10 @@ elif [[ "$head_sha" == "$remote_sha" ]]; then
 else
   fail "Local HEAD $head_sha does not match $repo/$branch $remote_sha"
 fi
+
+for workflow_name in ci secret-scan; do
+  check_head_workflow_success "$workflow_name"
+done
 
 if bash "$(dirname "$0")/check-release-prereqs.sh" "$repo" >/tmp/quickstype-release-prereqs.log 2>&1; then
   pass "Release workflows and signing secrets are configured"
