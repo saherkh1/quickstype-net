@@ -75,6 +75,17 @@ The script checks workflow names and secret names only; it does not read secret 
 
 Use `build/configure-release-secrets.sh` to upload the required GitHub repository secrets from local environment variables. The helper does not print secret values. For Apple `.p12` certificates, either provide a pre-encoded `*_P12_BASE64` value or a local `*_P12_PATH` file path; the helper will base64 encode the file before uploading it.
 
+For a fill-in template, copy `build/release-secrets.env.example` outside the repository, fill it there, then source it before running the preflight:
+
+```bash
+cp build/release-secrets.env.example /secure/path/quickstype-release-secrets.env
+$EDITOR /secure/path/quickstype-release-secrets.env
+set -a
+source /secure/path/quickstype-release-secrets.env
+set +a
+bash build/configure-release-secrets.sh --check-env saherkh1/quickstype-net
+```
+
 ```bash
 export APPLE_DEVELOPER_ID_APPLICATION_P12_PATH=/path/to/developer-id-application.p12
 export APPLE_DEVELOPER_ID_APPLICATION_PASSWORD='...'
