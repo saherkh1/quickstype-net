@@ -20,6 +20,12 @@ if [[ ! -f "$evidence" ]]; then
   exit 1
 fi
 
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+repo_root="$(cd "$script_dir/.." && pwd)"
+tag="v$version"
+
+bash "$repo_root/build/validate-release-evidence.sh" "$evidence" false "$tag" >/dev/null
+
 extract_asset_field() {
   local pattern="$1"
   local field="$2"
@@ -39,7 +45,6 @@ extract_asset_field() {
   ' "$evidence"
 }
 
-tag="v$version"
 base_url="https://github.com/${repo}/releases/download/${tag}"
 
 mac_asset="$(extract_asset_field 'QuickSType-.*-Setup[.]pkg$' asset)"
@@ -60,7 +65,7 @@ fi
 mac_url="${base_url}/${mac_asset}"
 win_url="${base_url}/${win_asset}"
 
-bash "$(dirname "$0")/homebrew/generate-cask.sh" "$version" "$mac_url" "$mac_sha"
-bash "$(dirname "$0")/winget/generate-winget-manifests.sh" "$version" "$win_url" "$win_sha"
+bash "$script_dir/homebrew/generate-cask.sh" "$version" "$mac_url" "$mac_sha"
+bash "$script_dir/winget/generate-winget-manifests.sh" "$version" "$win_url" "$win_sha"
 
 echo "Generated distribution manifests from $evidence"

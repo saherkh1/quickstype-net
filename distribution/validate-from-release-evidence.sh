@@ -20,6 +20,12 @@ if [[ ! -f "$evidence" ]]; then
   exit 1
 fi
 
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+repo_root="$(cd "$script_dir/.." && pwd)"
+tag="v$version"
+
+bash "$repo_root/build/validate-release-evidence.sh" "$evidence" false "$tag" >/dev/null
+
 extract_asset_field() {
   local pattern="$1"
   local field="$2"
@@ -54,7 +60,6 @@ require_contains() {
   fi
 }
 
-tag="v$version"
 base_url="https://github.com/${repo}/releases/download/${tag}"
 
 mac_asset="$(extract_asset_field 'QuickSType-.*-Setup[.]pkg$' asset)"

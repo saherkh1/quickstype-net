@@ -12,6 +12,35 @@ sha_win_upper="$(printf '%s' "$sha_win" | tr '[:lower:]' '[:upper:]')"
 evidence="$tmp_dir/release-evidence-v1.0.0.md"
 
 cat > "$evidence" <<EVIDENCE
+# QuickSType Release Evidence - v1.0.0
+
+| Field | Value |
+|-------|-------|
+| Tag | v1.0.0 |
+| Release commit | 0123456789abcdef0123456789abcdef01234567 |
+| Prerelease | false |
+| Matching release workflow run | https://github.com/saherkh1/quickstype-net/actions/runs/123 (completed/success) |
+
+## Asset Checksums
+
+| Asset | Size | SHA-256 |
+|-------|------|---------|
+| QuickSType-stable-Setup.pkg | 123 | $sha_mac |
+| QuickSType-stable-Setup.exe | 456 | $sha_win |
+
+## Manual Sign-Off
+
+- [x] macOS package signing identity matches expected Developer ID Application/Installer identities.
+- [x] macOS notarization and stapler validation passed in the release workflow.
+- [x] Windows Azure Artifact Signing completed for publish directory and installer.
+- [x] \`tests/manual/UPDATE_CANARY_MATRIX.md\` rows updated with PASS status plus tester/date/notes evidence.
+- [x] \`tests/manual/INJECTION_MATRIX.md\` rows updated with PASS status plus tester/date/notes evidence.
+- [x] \`tests/manual/TELEMETRY_MATRIX.md\` rows updated with PASS status plus tester/date/notes evidence.
+- [x] Homebrew and Winget manifest generators use the exact URLs and SHA-256 values above.
+EVIDENCE
+
+incomplete_evidence="$tmp_dir/incomplete-release-evidence-v1.0.0.md"
+cat > "$incomplete_evidence" <<EVIDENCE
 # Release Evidence v1.0.0
 
 | Asset | Size | SHA-256 |
@@ -19,6 +48,31 @@ cat > "$evidence" <<EVIDENCE
 | QuickSType-stable-Setup.pkg | 123 | $sha_mac |
 | QuickSType-stable-Setup.exe | 456 | $sha_win |
 EVIDENCE
+
+if (
+  cd "$tmp_dir"
+  bash "$repo_root/distribution/generate-from-release-evidence.sh" \
+    1.0.0 \
+    "$incomplete_evidence" \
+    saherkh1/quickstype-net >"$tmp_dir/incomplete-generate.log" 2>&1
+); then
+  echo "Expected incomplete release evidence generation to fail." >&2
+  exit 1
+fi
+
+assert_contains() {
+  local file="$1"
+  local text="$2"
+
+  if ! grep -Fq "$text" "$file"; then
+    echo "Expected $file to contain: $text" >&2
+    echo "--- $file ---" >&2
+    sed -n '1,220p' "$file" >&2
+    exit 1
+  fi
+}
+
+assert_contains "$tmp_dir/incomplete-generate.log" 'missing required manual sign-off'
 
 (
   cd "$tmp_dir"
@@ -33,18 +87,6 @@ winget_root="$tmp_dir/distribution/winget/manifests/q/QuickSType/QuickSType/1.0.
 winget_version="$winget_root/QuickSType.QuickSType.yaml"
 winget_locale="$winget_root/QuickSType.QuickSType.locale.en-US.yaml"
 winget_installer="$winget_root/QuickSType.QuickSType.installer.yaml"
-
-assert_contains() {
-  local file="$1"
-  local text="$2"
-
-  if ! grep -Fq "$text" "$file"; then
-    echo "Expected $file to contain: $text" >&2
-    echo "--- $file ---" >&2
-    sed -n '1,220p' "$file" >&2
-    exit 1
-  fi
-}
 
 for file in "$cask" "$winget_version" "$winget_locale" "$winget_installer"; do
   if [[ ! -f "$file" ]]; then
