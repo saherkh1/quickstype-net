@@ -33,6 +33,7 @@ public sealed class AppHost : IDisposable
     public ITrayPositionService TrayPosition { get; }
     public ISystemThemeService SystemTheme { get; }
     public IStreamingTranscriber? Streamer { get; }
+    public IIncrementalInjector IncrementalInjector { get; }
     public string EffectiveMode => Engine.EffectiveMode;
 
     private AppHost(
@@ -54,7 +55,8 @@ public sealed class AppHost : IDisposable
         IKeyboardLayoutService keyboardLayout,
         ITrayPositionService trayPosition,
         ISystemThemeService systemTheme,
-        IStreamingTranscriber? streamer)
+        IStreamingTranscriber? streamer,
+        IIncrementalInjector incrementalInjector)
     {
         ConfigStore = configStore;
         Config = config;
@@ -75,6 +77,7 @@ public sealed class AppHost : IDisposable
         TrayPosition = trayPosition;
         SystemTheme = systemTheme;
         Streamer = streamer;
+        IncrementalInjector = incrementalInjector;
     }
 
     public static AppHost Create()
@@ -132,6 +135,7 @@ public sealed class AppHost : IDisposable
         IKeyboardLayoutService keyboardLayout;
         ITrayPositionService trayPosition;
         ISystemThemeService systemTheme;
+        IIncrementalInjector incrementalInjector;
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
@@ -142,6 +146,7 @@ public sealed class AppHost : IDisposable
             keyboardLayout = new Platform.Mac.MacKeyboardLayoutService(lf.CreateLogger<Platform.Mac.MacKeyboardLayoutService>());
             trayPosition = new Platform.Mac.MacTrayPositionService(lf.CreateLogger<Platform.Mac.MacTrayPositionService>());
             systemTheme = new Platform.Mac.MacSystemThemeService(lf.CreateLogger<Platform.Mac.MacSystemThemeService>());
+            incrementalInjector = new Platform.Mac.MacIncrementalInjector(lf.CreateLogger<Platform.Mac.MacIncrementalInjector>());
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
@@ -152,6 +157,7 @@ public sealed class AppHost : IDisposable
             keyboardLayout = new Platform.Windows.WindowsKeyboardLayoutService(lf.CreateLogger<Platform.Windows.WindowsKeyboardLayoutService>());
             trayPosition = new Platform.Windows.WindowsTrayPositionService(lf.CreateLogger<Platform.Windows.WindowsTrayPositionService>());
             systemTheme = new Platform.Windows.WindowsSystemThemeService(lf.CreateLogger<Platform.Windows.WindowsSystemThemeService>());
+            incrementalInjector = new Platform.Windows.WindowsIncrementalInjector(lf.CreateLogger<Platform.Windows.WindowsIncrementalInjector>());
         }
         else
         {
@@ -162,6 +168,7 @@ public sealed class AppHost : IDisposable
             keyboardLayout = new NoopKeyboardLayoutService();
             trayPosition = new NoopTrayPositionService();
             systemTheme = new NoopSystemThemeService();
+            incrementalInjector = new NoopIncrementalInjector();
         }
 
         var hotkey = new HotkeyService(config.Hotkey, lf.CreateLogger<HotkeyService>());
@@ -171,7 +178,8 @@ public sealed class AppHost : IDisposable
             history: historyService,
             streamer: streamer,
             specs: specsService,
-            keyboardLayout: keyboardLayout);
+            keyboardLayout: keyboardLayout,
+            incrementalInjector: incrementalInjector);
 
         hotkey.Pressed += engine.OnHotkeyPressed;
         hotkey.Released += engine.OnHotkeyReleased;
@@ -184,7 +192,7 @@ public sealed class AppHost : IDisposable
             hotkey, engine, lf, downloader,
             specsService, systemSpecs, historyService,
             keyboardLayout, trayPosition, systemTheme,
-            streamer);
+            streamer, incrementalInjector);
     }
 
     public event Action<AppConfig>? ConfigChanged;
@@ -272,4 +280,9 @@ internal sealed class NoopSystemThemeService : ISystemThemeService
     public event Action<AppTheme>? Changed;
 #pragma warning restore CS0067
     public AppTheme Current => new(false, "#007AFF");
+}
+
+internal sealed class NoopIncrementalInjector : IIncrementalInjector
+{
+    public Task ApplyAsync(QuickSType.Core.Transcribe.TranscriptUpdate update, CancellationToken cancellationToken = default) => Task.CompletedTask;
 }

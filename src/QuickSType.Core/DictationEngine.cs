@@ -30,6 +30,7 @@ public sealed class DictationEngine : IDisposable
     private readonly IStreamingTranscriber? _streamer;
     private readonly ISystemSpecsService _specs;
     private readonly IKeyboardLayoutService? _keyboardLayout;
+    private readonly IIncrementalInjector? _incrementalInjector;
     private AppConfig _config;
     private DictationState _state = DictationState.Idle;
     private CancellationTokenSource? _cts;
@@ -58,7 +59,8 @@ public sealed class DictationEngine : IDisposable
         IHistoryService? history = null,
         IStreamingTranscriber? streamer = null,
         ISystemSpecsService? specs = null,
-        IKeyboardLayoutService? keyboardLayout = null)
+        IKeyboardLayoutService? keyboardLayout = null,
+        IIncrementalInjector? incrementalInjector = null)
     {
         _audio = audio;
         _transcriber = transcriber;
@@ -71,6 +73,7 @@ public sealed class DictationEngine : IDisposable
         _streamer = streamer;
         _specs = specs ?? new NullSystemSpecs();
         _keyboardLayout = keyboardLayout;
+        _incrementalInjector = incrementalInjector;
 
         _audio.SelectInputDevice(_config.SelectedAudioDevice);
 
@@ -186,6 +189,12 @@ public sealed class DictationEngine : IDisposable
         {
             await foreach (var update in _streamer!.RunAsync(frames, sampleRate, snapshot, ct).ConfigureAwait(false))
             {
+                if (_incrementalInjector is not null)
+                {
+                    try { await _incrementalInjector.ApplyAsync(update, ct).ConfigureAwait(false); }
+                    catch (OperationCanceledException) { throw; }
+                    catch (Exception ex) { _log.LogError(ex, "IncrementalInjector.ApplyAsync threw"); }
+                }
                 try { TranscriptUpdate?.Invoke(update); }
                 catch (Exception ex) { _log.LogError(ex, "TranscriptUpdate handler threw"); }
             }
