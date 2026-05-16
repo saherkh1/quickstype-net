@@ -49,6 +49,18 @@ public sealed record AppConfig
     [JsonPropertyName("enable_vibrancy")]
     public bool? EnableVibrancy { get; init; } = null;
 
+    [JsonPropertyName("update_channel")]
+    public string UpdateChannel { get; init; } = "canary";
+
+    [JsonPropertyName("update_source_url")]
+    public string? UpdateSourceUrl { get; init; } = null;
+
+    [JsonPropertyName("managed_package_manager")]
+    public string? ManagedPackageManager { get; init; } = null;
+
+    [JsonPropertyName("enable_background_update_checks")]
+    public bool EnableBackgroundUpdateChecks { get; init; } = true;
+
     public AppConfig WithLanguage(string lang)
     {
         var normalised = (lang ?? string.Empty).Trim().ToLowerInvariant();

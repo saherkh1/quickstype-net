@@ -1,0 +1,317 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: SemVer package version without the leading v
+        required: true
+        default: 0.99.0
+      channel:
+        description: Velopack release channel
+        required: true
+        default: canary
+
+permissions:
+  contents: write
+  id-token: write
+
+env:
+  DOTNET_ROLL_FORWARD: Major
+  VPK_VERSION: 0.0.1298
+  PACK_ID: QuickSType
+  PACK_TITLE: QuickSType
+
+jobs:
+  macos:
+    runs-on: macos-14
+    name: macOS signed/notarized release
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+
+      - name: Resolve release metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ inputs.version }}"
+            CHANNEL="${{ inputs.channel }}"
+            TAG="v${VERSION}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+            VERSION="${TAG#v}"
+            CHANNEL="canary"
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "CHANNEL=$CHANNEL" >> "$GITHUB_ENV"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+
+      - name: Verify Apple signing secrets
+        shell: bash
+        env:
+          APP_CERT: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_P12_BASE64 }}
+          APP_CERT_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_PASSWORD }}
+          INSTALLER_CERT: ${{ secrets.APPLE_DEVELOPER_ID_INSTALLER_P12_BASE64 }}
+          INSTALLER_CERT_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_INSTALLER_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.APPLE_KEYCHAIN_PASSWORD }}
+          APP_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_IDENTITY }}
+          INSTALLER_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_INSTALLER_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in APP_CERT APP_CERT_PASSWORD INSTALLER_CERT INSTALLER_CERT_PASSWORD KEYCHAIN_PASSWORD APP_IDENTITY INSTALLER_IDENTITY APPLE_ID APPLE_TEAM_ID APPLE_APP_PASSWORD; do
+            if [[ -z "${!name}" ]]; then
+              echo "Missing required Apple secret: $name" >&2
+              exit 1
+            fi
+          done
+
+      - name: Install Velopack CLI
+        shell: bash
+        run: dotnet tool install --tool-path .tools vpk --version "$VPK_VERSION"
+
+      - name: Import Apple Developer ID certificates
+        shell: bash
+        env:
+          APP_CERT: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_P12_BASE64 }}
+          APP_CERT_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_PASSWORD }}
+          INSTALLER_CERT: ${{ secrets.APPLE_DEVELOPER_ID_INSTALLER_P12_BASE64 }}
+          INSTALLER_CERT_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_INSTALLER_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.APPLE_KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN_PATH="$RUNNER_TEMP/quickstype-release.keychain-db"
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
+          echo "$APP_CERT" | base64 --decode > "$RUNNER_TEMP/developer-id-application.p12"
+          echo "$INSTALLER_CERT" | base64 --decode > "$RUNNER_TEMP/developer-id-installer.p12"
+          security import "$RUNNER_TEMP/developer-id-application.p12" -k "$KEYCHAIN_PATH" -P "$APP_CERT_PASSWORD" -T /usr/bin/codesign
+          security import "$RUNNER_TEMP/developer-id-installer.p12" -k "$KEYCHAIN_PATH" -P "$INSTALLER_CERT_PASSWORD" -T /usr/bin/productsign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+
+      - name: Store notarytool profile
+        shell: bash
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          set -euo pipefail
+          xcrun notarytool store-credentials quickstype-notary \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --keychain "$KEYCHAIN_PATH"
+
+      - name: Test
+        run: dotnet test QuickSType.sln --nologo -v minimal
+
+      - name: Publish AOT macOS
+        shell: bash
+        run: |
+          dotnet publish src/QuickSType.UI/QuickSType.UI.csproj \
+            -c Release \
+            -r osx-arm64 \
+            --self-contained true \
+            -p:PublishAot=true \
+            -p:Version="$VERSION" \
+            -p:InformationalVersion="$VERSION" \
+            -o "artifacts/publish/osx-arm64/$VERSION" \
+            --nologo
+
+      - name: Velopack pack, sign, notarize, and staple macOS
+        shell: bash
+        env:
+          APP_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_IDENTITY }}
+          INSTALLER_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_INSTALLER_IDENTITY }}
+        run: |
+          .tools/vpk pack \
+            --packId "$PACK_ID" \
+            --packTitle "$PACK_TITLE" \
+            --packVersion "$VERSION" \
+            --channel "$CHANNEL" \
+            --runtime osx-arm64 \
+            --packDir "artifacts/publish/osx-arm64/$VERSION" \
+            --mainExe QuickSType \
+            --outputDir "artifacts/velopack/osx-arm64/$VERSION" \
+            --bundleId com.saherk.quickstype \
+            --plist build/Info.plist \
+            --signEntitlements build/QuickSType.entitlements \
+            --signAppIdentity "$APP_IDENTITY" \
+            --signInstallIdentity "$INSTALLER_IDENTITY" \
+            --notaryProfile quickstype-notary \
+            --keychain "$KEYCHAIN_PATH" \
+            --yes
+          xcrun stapler validate "artifacts/velopack/osx-arm64/$VERSION/QuickSType-$CHANNEL-Setup.pkg"
+
+      - name: Upload macOS releases to GitHub Release
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          .tools/vpk upload github \
+            --outputDir "artifacts/velopack/osx-arm64/$VERSION" \
+            --channel "$CHANNEL" \
+            --repoUrl "https://github.com/${{ github.repository }}" \
+            --token "$GITHUB_TOKEN" \
+            --tag "$TAG" \
+            --releaseName "QuickSType $TAG" \
+            --pre \
+            --merge \
+            --publish
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quickstype-release-osx-arm64
+          path: artifacts/velopack/osx-arm64/
+          if-no-files-found: error
+
+  windows:
+    runs-on: windows-2022
+    name: Windows signed release
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+
+      - name: Resolve release metadata
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            "VERSION=${{ inputs.version }}" | Out-File -FilePath $env:GITHUB_ENV -Append
+            "CHANNEL=${{ inputs.channel }}" | Out-File -FilePath $env:GITHUB_ENV -Append
+            "TAG=v${{ inputs.version }}" | Out-File -FilePath $env:GITHUB_ENV -Append
+          } else {
+            $tag = "${env:GITHUB_REF_NAME}"
+            "VERSION=$($tag.TrimStart('v'))" | Out-File -FilePath $env:GITHUB_ENV -Append
+            "CHANNEL=canary" | Out-File -FilePath $env:GITHUB_ENV -Append
+            "TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append
+          }
+
+      - name: Verify Azure Artifact Signing inputs
+        shell: pwsh
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          AZURE_ARTIFACT_SIGNING_ENDPOINT: ${{ secrets.AZURE_ARTIFACT_SIGNING_ENDPOINT }}
+          AZURE_ARTIFACT_SIGNING_ACCOUNT: ${{ secrets.AZURE_ARTIFACT_SIGNING_ACCOUNT }}
+          AZURE_ARTIFACT_SIGNING_CERT_PROFILE: ${{ secrets.AZURE_ARTIFACT_SIGNING_CERT_PROFILE }}
+        run: |
+          $required = @(
+            "AZURE_CLIENT_ID",
+            "AZURE_TENANT_ID",
+            "AZURE_SUBSCRIPTION_ID",
+            "AZURE_ARTIFACT_SIGNING_ENDPOINT",
+            "AZURE_ARTIFACT_SIGNING_ACCOUNT",
+            "AZURE_ARTIFACT_SIGNING_CERT_PROFILE"
+          )
+          foreach ($name in $required) {
+            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
+              throw "Missing required Azure signing secret: $name"
+            }
+          }
+
+      - name: Azure login
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Install Velopack CLI
+        shell: pwsh
+        run: dotnet tool install --tool-path .tools vpk --version $env:VPK_VERSION
+
+      - name: Test
+        run: dotnet test QuickSType.sln --nologo -v minimal
+
+      - name: Publish AOT Windows
+        shell: pwsh
+        run: |
+          dotnet publish src/QuickSType.UI/QuickSType.UI.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:PublishAot=true `
+            -p:Version=$env:VERSION `
+            -p:InformationalVersion=$env:VERSION `
+            -o "artifacts/publish/win-x64/$env:VERSION" `
+            --nologo
+
+      - name: Sign published Windows binaries
+        uses: azure/artifact-signing-action@v1
+        with:
+          endpoint: ${{ secrets.AZURE_ARTIFACT_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ secrets.AZURE_ARTIFACT_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.AZURE_ARTIFACT_SIGNING_CERT_PROFILE }}
+          files-folder: ${{ github.workspace }}\artifacts\publish\win-x64
+          files-folder-filter: exe,dll
+          files-folder-recurse: true
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+          description: QuickSType
+          description-url: https://github.com/${{ github.repository }}
+
+      - name: Velopack pack Windows
+        shell: pwsh
+        run: |
+          .tools/vpk pack `
+            --packId $env:PACK_ID `
+            --packTitle $env:PACK_TITLE `
+            --packVersion $env:VERSION `
+            --channel $env:CHANNEL `
+            --runtime win-x64 `
+            --packDir "artifacts/publish/win-x64/$env:VERSION" `
+            --mainExe QuickSType.exe `
+            --outputDir "artifacts/velopack/win-x64/$env:VERSION" `
+            --yes
+
+      - name: Sign Windows installer
+        uses: azure/artifact-signing-action@v1
+        with:
+          endpoint: ${{ secrets.AZURE_ARTIFACT_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ secrets.AZURE_ARTIFACT_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.AZURE_ARTIFACT_SIGNING_CERT_PROFILE }}
+          files-folder: ${{ github.workspace }}\artifacts\velopack\win-x64
+          files-folder-filter: exe
+          files-folder-recurse: true
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+          description: QuickSType
+          description-url: https://github.com/${{ github.repository }}
+
+      - name: Upload Windows releases to GitHub Release
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          .tools/vpk upload github `
+            --outputDir "artifacts/velopack/win-x64/$env:VERSION" `
+            --channel $env:CHANNEL `
+            --repoUrl "https://github.com/${{ github.repository }}" `
+            --token "$env:GITHUB_TOKEN" `
+            --tag "$env:TAG" `
+            --releaseName "QuickSType $env:TAG" `
+            --pre `
+            --merge `
+            --publish
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quickstype-release-win-x64
+          path: artifacts/velopack/win-x64/
+          if-no-files-found: error

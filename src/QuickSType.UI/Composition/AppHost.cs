@@ -8,6 +8,8 @@ using QuickSType.Core.Hotkey;
 using QuickSType.Core.Paste;
 using QuickSType.Core.Platform;
 using QuickSType.Core.Transcribe;
+using QuickSType.UI.Telemetry;
+using QuickSType.UI.Updates;
 using System.Drawing;
 
 namespace QuickSType.UI.Composition;
@@ -32,6 +34,9 @@ public sealed class AppHost : IDisposable
     public IKeyboardLayoutService KeyboardLayout { get; }
     public ITrayPositionService TrayPosition { get; }
     public ISystemThemeService SystemTheme { get; }
+    public IUpdateService UpdateService { get; }
+    public PostUpdateSelfCheckService PostUpdateSelfCheck { get; }
+    public ITelemetryService TelemetryService { get; }
     public IStreamingTranscriber? Streamer { get; }
     public IIncrementalInjector IncrementalInjector { get; }
     public string EffectiveMode => Engine.EffectiveMode;
@@ -55,6 +60,9 @@ public sealed class AppHost : IDisposable
         IKeyboardLayoutService keyboardLayout,
         ITrayPositionService trayPosition,
         ISystemThemeService systemTheme,
+        IUpdateService updateService,
+        PostUpdateSelfCheckService postUpdateSelfCheck,
+        ITelemetryService telemetryService,
         IStreamingTranscriber? streamer,
         IIncrementalInjector incrementalInjector)
     {
@@ -76,6 +84,9 @@ public sealed class AppHost : IDisposable
         KeyboardLayout = keyboardLayout;
         TrayPosition = trayPosition;
         SystemTheme = systemTheme;
+        UpdateService = updateService;
+        PostUpdateSelfCheck = postUpdateSelfCheck;
+        TelemetryService = telemetryService;
         Streamer = streamer;
         IncrementalInjector = incrementalInjector;
     }
@@ -180,6 +191,11 @@ public sealed class AppHost : IDisposable
             specs: specsService,
             keyboardLayout: keyboardLayout,
             incrementalInjector: incrementalInjector);
+        var updateService = new UpdateService(lf.CreateLogger<UpdateService>());
+        var postUpdateSelfCheck = PostUpdateSelfCheckService.CreateDefault();
+        var telemetryService = new SentryTelemetryService(
+            SentryTelemetryService.CreateOptions(config),
+            lf.CreateLogger<SentryTelemetryService>());
 
         hotkey.Pressed += engine.OnHotkeyPressed;
         hotkey.Released += engine.OnHotkeyReleased;
@@ -191,7 +207,7 @@ public sealed class AppHost : IDisposable
             configStore, config, audio, transcriber, paste, notify, permissions, autoLaunch,
             hotkey, engine, lf, downloader,
             specsService, systemSpecs, historyService,
-            keyboardLayout, trayPosition, systemTheme,
+            keyboardLayout, trayPosition, systemTheme, updateService, postUpdateSelfCheck, telemetryService,
             streamer, incrementalInjector);
     }
 
@@ -223,6 +239,10 @@ public sealed class AppHost : IDisposable
         Config = cfg;
         Engine.UpdateConfig(cfg);
         Hotkey.SetHotkey(cfg.Hotkey);
+        if (TelemetryService is SentryTelemetryService sentryTelemetry)
+        {
+            sentryTelemetry.ApplyConfig(cfg);
+        }
         try { ConfigChanged?.Invoke(cfg); }
         catch (Exception ex) { LoggerFactory.CreateLogger<AppHost>().LogError(ex, "ConfigChanged handler threw"); }
     }
@@ -235,6 +255,7 @@ public sealed class AppHost : IDisposable
         (KeyboardLayout as IDisposable)?.Dispose();
         (TrayPosition as IDisposable)?.Dispose();
         (SystemTheme as IDisposable)?.Dispose();
+        TelemetryService.Dispose();
         LoggerFactory.Dispose();
     }
 }

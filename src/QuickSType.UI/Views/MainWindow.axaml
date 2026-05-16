@@ -44,6 +44,29 @@
           <TextBlock Classes="h1" Text="General" />
           <TextBlock Classes="muted" Text="Hotkey, microphone, transcription engine, and startup behaviour." />
 
+          <Border Background="{DynamicResource SystemAltLowColor}"
+                  BorderBrush="{DynamicResource SystemAccentColor}"
+                  BorderThickness="1"
+                  CornerRadius="6"
+                  Padding="12"
+                  IsVisible="{Binding IsPermissionBannerVisible}">
+            <DockPanel LastChildFill="False">
+              <TextBlock Text="{Binding PermissionBannerText}"
+                         TextWrapping="Wrap"
+                         VerticalAlignment="Center"
+                         DockPanel.Dock="Left"
+                         MaxWidth="300" />
+              <StackPanel Orientation="Horizontal"
+                          Spacing="8"
+                          DockPanel.Dock="Right">
+                <Button Content="Open System Settings"
+                        Command="{Binding OpenAccessibilitySettingsCommand}" />
+                <Button Content="Dismiss"
+                        Command="{Binding DismissPermissionBannerCommand}" />
+              </StackPanel>
+            </DockPanel>
+          </Border>
+
           <StackPanel Spacing="6">
             <TextBlock Classes="h2" Text="Push-to-talk hotkey" />
             <TextBlock Classes="muted" Text="Hold this key to record. Release to transcribe and paste at the cursor." />
@@ -217,7 +240,7 @@
         <StackPanel Spacing="14" MaxWidth="520" HorizontalAlignment="Center">
 
           <TextBlock Text="QuickSType" FontSize="28" FontWeight="SemiBold" HorizontalAlignment="Center" />
-          <TextBlock Text="Version 0.1.0" HorizontalAlignment="Center" Opacity="0.7" />
+          <TextBlock Text="{Binding CurrentVersionText}" HorizontalAlignment="Center" Opacity="0.7" />
 
           <Border Height="1" Background="{DynamicResource SystemBaseLowColor}" Margin="0,8" />
 
@@ -225,7 +248,25 @@
                      Text="Push-to-talk voice dictation for macOS and Windows. Hold a hotkey, speak, release — text appears at your cursor." />
 
           <TextBlock TextWrapping="Wrap" HorizontalAlignment="Center" TextAlignment="Center" Opacity="0.8"
-                     Text="100% local. Transcription via whisper.cpp through Whisper.net. No cloud, no telemetry." />
+                     Text="100% local transcription via whisper.cpp through Whisper.net. Crash reports are optional and off by default." />
+
+          <CheckBox Content="Share crash reports"
+                    IsChecked="{Binding EnableCrashTelemetry}"
+                    HorizontalAlignment="Center" />
+
+          <Border Height="1" Background="{DynamicResource SystemBaseLowColor}" Margin="0,8" />
+
+          <StackPanel Spacing="6" HorizontalAlignment="Stretch">
+            <TextBlock Text="Updates" FontWeight="SemiBold" HorizontalAlignment="Center" />
+            <TextBlock Text="{Binding UpdateChannelText}" HorizontalAlignment="Center" Opacity="0.7" />
+            <TextBlock Text="{Binding LastUpdateCheckText}" HorizontalAlignment="Center" Opacity="0.7" />
+            <TextBlock Text="{Binding UpdateStatusText}" TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" />
+            <Button Content="{Binding UpdateActionText}"
+                    Command="{Binding CheckForUpdatesCommand}"
+                    IsEnabled="{Binding IsUpdateActionEnabled}"
+                    HorizontalAlignment="Center"
+                    MinWidth="180" />
+          </StackPanel>
 
           <Border Height="1" Background="{DynamicResource SystemBaseLowColor}" Margin="0,8" />
 

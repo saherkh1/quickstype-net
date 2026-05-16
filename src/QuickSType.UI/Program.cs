@@ -1,5 +1,6 @@
 using Avalonia;
 using QuickSType.UI.SmokeTest;
+using Velopack;
 
 namespace QuickSType.UI;
 
@@ -15,6 +16,7 @@ internal static class Program
 
         try
         {
+            VelopackApp.Build().Run();
             return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
         }
         catch (Exception ex)

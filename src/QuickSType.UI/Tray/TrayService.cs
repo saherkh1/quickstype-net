@@ -7,6 +7,7 @@ using Avalonia.Threading;
 using Microsoft.Extensions.Logging;
 using QuickSType.Core;
 using QuickSType.UI.Composition;
+using QuickSType.UI.Updates;
 using QuickSType.UI.Views;
 
 namespace QuickSType.UI.Tray;
@@ -19,6 +20,7 @@ public sealed class TrayService
     private NativeMenu? _menu;
     private NativeMenuItem? _stateItem;
     private NativeMenuItem? _modeItem;
+    private NativeMenuItem? _updateItem;
     private NativeMenuItem? _languageRoot;
     private NativeMenu? _languageSubmenu;
     private NativeMenuItem? _autoLangItem;
@@ -29,6 +31,9 @@ public sealed class TrayService
     private NativeMenuItem? _detectedLayoutItem;
     private NativeMenuItemSeparator? _detectedLayoutSeparator;
     private MainWindow? _mainWindow;
+    private UpdateCheckResult? _lastUpdateResult;
+    private bool _isUpdateBusy;
+    private DateTimeOffset? _lastUpdateChecked;
 
     public TrayService(AppHost host)
     {
@@ -87,6 +92,11 @@ public sealed class TrayService
         var settings = new NativeMenuItem("Open QuickSType…");
         settings.Click += (_, _) => ShowMain(MainTab.General);
         menu.Add(settings);
+
+        _updateItem = new NativeMenuItem();
+        _updateItem.Click += async (_, _) => await OnUpdateClickAsync();
+        RefreshUpdateItem();
+        menu.Add(_updateItem);
 
         menu.Add(new NativeMenuItemSeparator());
 
@@ -240,7 +250,71 @@ public sealed class TrayService
                     _ => "idle",
                 });
             }
+            RefreshUpdateItem();
         });
+    }
+
+    private async Task OnUpdateClickAsync()
+    {
+        if (_isUpdateBusy || _updateItem is null) return;
+
+        var currentStatus = _lastUpdateResult?.Status ?? _host.UpdateService.GetCurrentStatus(_host.Config);
+        if (_lastUpdateResult is not null
+            && currentStatus.Kind is UpdateStatusKind.UpdateAvailable or UpdateStatusKind.UpdateReadyToRestart)
+        {
+            if (_host.Engine.State != DictationState.Idle) return;
+            try
+            {
+                _host.UpdateService.ApplyUpdatesAndRestart(_lastUpdateResult!);
+            }
+            catch (Exception ex)
+            {
+                _log.LogWarning(ex, "Apply update from tray failed");
+            }
+            return;
+        }
+
+        _isUpdateBusy = true;
+        RefreshUpdateItem();
+        try
+        {
+            var result = await _host.UpdateService.CheckForUpdatesAsync(_host.Config);
+            _lastUpdateChecked = DateTimeOffset.Now;
+            if (result.Status.Kind == UpdateStatusKind.UpdateAvailable)
+            {
+                await _host.UpdateService.DownloadUpdatesAsync(result);
+                result = result with
+                {
+                    Status = result.Status with
+                    {
+                        Kind = UpdateStatusKind.UpdateReadyToRestart,
+                        Message = result.TargetVersion is null
+                            ? "Update is ready to install."
+                            : $"Update {result.TargetVersion} is ready to install.",
+                    },
+                };
+            }
+            _lastUpdateResult = result;
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Update check from tray failed");
+        }
+        finally
+        {
+            _isUpdateBusy = false;
+            RefreshUpdateItem();
+        }
+    }
+
+    private void RefreshUpdateItem()
+    {
+        if (_updateItem is null) return;
+
+        var status = _lastUpdateResult?.Status ?? _host.UpdateService.GetCurrentStatus(_host.Config);
+        var ui = UpdatePresentation.FromStatus(status, _lastUpdateChecked, _isUpdateBusy, _host.Engine.State);
+        _updateItem.Header = ui.TrayHeader;
+        _updateItem.IsEnabled = ui.IsActionEnabled;
     }
 
     private void ShowMain(MainTab tab)
