@@ -75,19 +75,21 @@ fi
 if ! awk -F'|' '
   /^\|/ {
     asset = $2
+    size = $3
     sha = $4
     gsub(/^[ \t]+|[ \t]+$/, "", asset)
+    gsub(/^[ \t]+|[ \t]+$/, "", size)
     gsub(/^[ \t]+|[ \t]+$/, "", sha)
-    if (asset ~ /^QuickSType-.*-Setup[.]pkg$/ && sha ~ /^[a-fA-F0-9]{64}$/) {
+    if (asset ~ /^QuickSType-.*-Setup[.]pkg$/ && size ~ /^[1-9][0-9]*$/ && sha ~ /^[a-fA-F0-9]{64}$/) {
       found_pkg = 1
     }
-    if (asset ~ /^QuickSType-.*-Setup[.]exe$/ && sha ~ /^[a-fA-F0-9]{64}$/) {
+    if (asset ~ /^QuickSType-.*-Setup[.]exe$/ && size ~ /^[1-9][0-9]*$/ && sha ~ /^[a-fA-F0-9]{64}$/) {
       found_exe = 1
     }
   }
   END { exit !(found_pkg && found_exe) }
 ' "$evidence"; then
-  echo "Release evidence must include QuickSType .pkg and .exe setup assets with SHA-256 values: $evidence" >&2
+  echo "Release evidence must include QuickSType .pkg and .exe setup assets with positive byte sizes and SHA-256 values: $evidence" >&2
   exit 1
 fi
 
