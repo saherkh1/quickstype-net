@@ -97,6 +97,14 @@ if bash "$(dirname "$0")/check-release-prereqs.sh" "$repo" >/tmp/quickstype-rele
 else
   fail "Release workflows/signing secrets are incomplete"
   sed 's/^/  /' /tmp/quickstype-release-prereqs.log
+  echo "  Local release secret env preflight:"
+  if bash "$(dirname "$0")/configure-release-secrets.sh" --check-env "$repo" >/tmp/quickstype-release-env.log 2>&1; then
+    sed 's/^/    /' /tmp/quickstype-release-env.log
+    echo "    Next: bash $(dirname "$0")/configure-release-secrets.sh $repo"
+  else
+    sed 's/^/    /' /tmp/quickstype-release-env.log
+    echo "    Next: export the missing values, then run bash $(dirname "$0")/configure-release-secrets.sh --check-env $repo"
+  fi
 fi
 
 for tag in v0.99.0 v0.99.1 v1.0.0; do
