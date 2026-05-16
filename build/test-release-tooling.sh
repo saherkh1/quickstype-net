@@ -238,9 +238,28 @@ cat > "$good_update_matrix" <<'MATRIX'
 | ID | Platform | Scenario | Old version | New version | Install path | Update source | Expected result | Status | Tester/date | Notes |
 |----|----------|----------|-------------|-------------|--------------|---------------|-----------------|--------|-------------|-------|
 | UPDATE-CANARY-01 | macOS arm64 | Install v0.99.0, update in-app to v0.99.1 | v0.99.0 | v0.99.1 | `/Applications/QuickSType.app` | GitHub Releases canary feed | App updates and relaunches as v0.99.1 | PASS | Saher 2026-05-16 | macOS 15.5 arm64; QuickSType-canary-Setup.pkg sha256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef; release URL recorded |
+| UPDATE-CANARY-02 | macOS arm64 | Accessibility granted before update | v0.99.0 | v0.99.1 | `/Applications/QuickSType.app` | GitHub Releases canary feed | No Accessibility permission re-prompt; permission remains trusted | PASS | Saher 2026-05-16 | macOS 15.5 arm64; Accessibility stayed trusted after update; release URL recorded |
+| UPDATE-CANARY-03 | macOS arm64 | Accessibility missing after update | v0.99.0 | v0.99.1 | `/Applications/QuickSType.app` | GitHub Releases canary feed | General-tab banner appears with Open System Settings action | PASS | Saher 2026-05-16 | macOS 15.5 arm64; revoked Accessibility and banner appeared after update |
+| UPDATE-CANARY-04 | Windows x64 | Install v0.99.0, update in-app to v0.99.1 | v0.99.0 | v0.99.1 | Stable Velopack install directory | GitHub Releases canary feed | App updates and relaunches as v0.99.1 | PASS | Saher 2026-05-16 | Windows 11 x64; signed installer sha256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef |
+| UPDATE-CANARY-05 | Windows x64 | Winget-managed marker/config | v0.99.0 | n/a | Winget install path | n/a | UI says updates managed by Winget; no in-app update prompt | PASS | Saher 2026-05-16 | Windows 11 x64; managed_package_manager=winget disables app update action |
+| UPDATE-CANARY-06 | macOS arm64 | Homebrew-managed marker/config | v0.99.0 | n/a | Homebrew cask app path | n/a | UI says updates managed by Homebrew; no in-app update prompt | PASS | Saher 2026-05-16 | macOS 15.5 arm64; managed_package_manager=homebrew disables app update action |
 MATRIX
 
 bash "$repo_root/build/validate-manual-matrix.sh" "$good_update_matrix" update >/dev/null
+
+truncated_update_matrix="$tmp_dir/truncated-update-matrix.md"
+head -n 3 "$good_update_matrix" >"$truncated_update_matrix"
+
+if bash "$repo_root/build/validate-manual-matrix.sh" "$truncated_update_matrix" update >"$tmp_dir/truncated-update-matrix.log" 2>&1; then
+  echo "validate-manual-matrix.sh allowed an incomplete update matrix." >&2
+  exit 1
+fi
+
+if ! grep -Fq 'expected 6 update matrix rows' "$tmp_dir/truncated-update-matrix.log"; then
+  echo "validate-manual-matrix.sh did not explain incomplete update matrix row count." >&2
+  cat "$tmp_dir/truncated-update-matrix.log" >&2
+  exit 1
+fi
 
 bad_evidence="$tmp_dir/bad-release-evidence-v1.0.0.md"
 cat > "$bad_evidence" <<'EVIDENCE'

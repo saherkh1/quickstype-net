@@ -39,6 +39,19 @@ function has_evidence(value) {
   return value != "" && value != "-" && value !~ /Requires / && value !~ /Pending / && tolower(value) !~ /not tested/
 }
 
+function expected_rows_for_kind() {
+  if (kind == "injection") {
+    return 11
+  }
+  if (kind == "update") {
+    return 6
+  }
+  if (kind == "telemetry") {
+    return 4
+  }
+  return 0
+}
+
 /^\|/ {
   id = trim($2)
   if (kind == "injection") {
@@ -119,6 +132,8 @@ function has_evidence(value) {
 END {
   if (rows == 0) {
     fail(matrix ": no " kind " matrix rows found")
+  } else if (rows != expected_rows_for_kind()) {
+    fail(matrix ": expected " expected_rows_for_kind() " " kind " matrix rows, found " rows)
   }
   exit failures ? 1 : 0
 }
