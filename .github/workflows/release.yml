@@ -14,6 +14,10 @@ on:
         description: Velopack release channel
         required: true
         default: canary
+        type: choice
+        options:
+          - canary
+          - stable
 
 permissions:
   contents: write
@@ -47,6 +51,13 @@ jobs:
             VERSION="${TAG#v}"
             CHANNEL="canary"
           fi
+          case "$CHANNEL" in
+            canary|stable) ;;
+            *)
+              echo "Unsupported release channel: $CHANNEL" >&2
+              exit 64
+              ;;
+          esac
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "CHANNEL=$CHANNEL" >> "$GITHUB_ENV"
           echo "TAG=$TAG" >> "$GITHUB_ENV"
@@ -202,6 +213,10 @@ jobs:
             "VERSION=$($tag.TrimStart('v'))" | Out-File -FilePath $env:GITHUB_ENV -Append
             "CHANNEL=canary" | Out-File -FilePath $env:GITHUB_ENV -Append
             "TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append
+          }
+          $channel = if ("${{ github.event_name }}" -eq "workflow_dispatch") { "${{ inputs.channel }}" } else { "canary" }
+          if ($channel -notin @("canary", "stable")) {
+            throw "Unsupported release channel: $channel"
           }
 
       - name: Verify Azure Artifact Signing inputs

@@ -16,6 +16,11 @@ if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
   exit 64
 fi
 
+if [[ "$channel" != "canary" && "$channel" != "stable" ]]; then
+  echo "Channel must be canary or stable: $channel" >&2
+  exit 64
+fi
+
 if [[ -z "$repo" ]]; then
   repo="$(gh repo view --json nameWithOwner -q .nameWithOwner)"
 fi
