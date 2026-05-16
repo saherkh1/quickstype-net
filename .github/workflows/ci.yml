@@ -12,17 +12,20 @@ permissions:
   actions: write   # for actions/cache@v4
 
 jobs:
-  distribution-manifests:
+  release-tooling:
     runs-on: ubuntu-latest
-    name: distribution manifest generator
+    name: release tooling
     steps:
       - uses: actions/checkout@v6
+
+      - name: Verify release tooling consistency
+        run: bash build/test-release-tooling.sh
 
       - name: Verify distribution manifest generator
         run: bash distribution/test-generate-from-release-evidence.sh
 
   publish:
-    needs: distribution-manifests
+    needs: release-tooling
     strategy:
       fail-fast: false
       matrix:
