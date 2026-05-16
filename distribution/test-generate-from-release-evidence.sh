@@ -197,4 +197,18 @@ fi
 
 assert_contains "$tmp_dir/stale-validation.log" 'does not match release evidence'
 
+perl -0pi -e 's/PackageVersion: 1[.]0[.]0/PackageVersion: 1.0.1/g' "$winget_locale"
+if (
+  cd "$tmp_dir"
+  bash "$repo_root/distribution/validate-from-release-evidence.sh" \
+    1.0.0 \
+    "$evidence" \
+    saherkh1/quickstype-net >"$tmp_dir/stale-locale-validation.log" 2>&1
+); then
+  echo "Expected stale Winget locale manifest validation to fail." >&2
+  exit 1
+fi
+
+assert_contains "$tmp_dir/stale-locale-validation.log" 'does not match release evidence'
+
 echo "Distribution manifest generator fixture test passed."
