@@ -297,6 +297,46 @@ if ! grep -Eq 'release commit|successful release workflow run' "$tmp_dir/bad-evi
   exit 1
 fi
 
+bad_workflow_url_evidence="$tmp_dir/bad-workflow-url-release-evidence-v1.0.0.md"
+cat > "$bad_workflow_url_evidence" <<'EVIDENCE'
+# QuickSType Release Evidence - v1.0.0
+
+| Field | Value |
+|-------|-------|
+| Tag | v1.0.0 |
+| Release commit | 0123456789abcdef0123456789abcdef01234567 |
+| Prerelease | false |
+| Matching release workflow run | not-a-github-actions-run (completed/success) |
+
+## Asset Checksums
+
+| Asset | Size bytes | SHA-256 |
+|-------|------------|---------|
+| QuickSType-stable-Setup.pkg | 123 | 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef |
+| QuickSType-stable-Setup.exe | 456 | fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210 |
+
+## Manual Sign-Off
+
+- [x] macOS package signing identity matches expected Developer ID Application/Installer identities.
+- [x] macOS notarization and stapler validation passed in the release workflow.
+- [x] Windows Azure Artifact Signing completed for publish directory and installer.
+- [x] `tests/manual/UPDATE_CANARY_MATRIX.md` rows updated with PASS status plus tester/date/notes evidence.
+- [x] `tests/manual/INJECTION_MATRIX.md` rows updated with PASS status plus tester/date/notes evidence.
+- [x] `tests/manual/TELEMETRY_MATRIX.md` rows updated with PASS status plus tester/date/notes evidence.
+- [x] Homebrew and Winget manifest generators use the exact URLs and SHA-256 values above.
+EVIDENCE
+
+if bash "$repo_root/build/validate-release-evidence.sh" "$bad_workflow_url_evidence" >"$tmp_dir/bad-workflow-url-validation.log" 2>&1; then
+  echo "validate-release-evidence.sh allowed release evidence with a non-GitHub workflow URL." >&2
+  exit 1
+fi
+
+if ! grep -Fq 'successful release workflow run' "$tmp_dir/bad-workflow-url-validation.log"; then
+  echo "validate-release-evidence.sh did not explain invalid release workflow URL." >&2
+  cat "$tmp_dir/bad-workflow-url-validation.log" >&2
+  exit 1
+fi
+
 missing_assets_evidence="$tmp_dir/missing-assets-release-evidence-v1.0.0.md"
 cat > "$missing_assets_evidence" <<'EVIDENCE'
 # QuickSType Release Evidence - v1.0.0
