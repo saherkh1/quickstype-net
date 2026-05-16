@@ -12,7 +12,17 @@ permissions:
   actions: write   # for actions/cache@v4
 
 jobs:
+  distribution-manifests:
+    runs-on: ubuntu-latest
+    name: distribution manifest generator
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Verify distribution manifest generator
+        run: bash distribution/test-generate-from-release-evidence.sh
+
   publish:
+    needs: distribution-manifests
     strategy:
       fail-fast: false
       matrix:
