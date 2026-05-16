@@ -47,6 +47,7 @@ emit() {
 }
 
 require_command gh
+require_command git
 require_command shasum
 require_command mktemp
 require_command find
@@ -73,13 +74,12 @@ fi
 release_url="$(release_field url)"
 published_at="$(release_field publishedAt)"
 is_prerelease="$(release_field isPrerelease)"
+target_commitish="$(release_field targetCommitish)"
 
-latest_run="$(gh run list \
-  --repo "$repo" \
-  --workflow release.yml \
-  --limit 20 \
-  --json databaseId,conclusion,createdAt,event,status,url \
-  -q 'map(select(.event == "workflow_dispatch" or .event == "push")) | .[0] // empty')"
+release_sha="$(git ls-remote "https://github.com/${repo}.git" "refs/tags/${tag}" "refs/tags/${tag}^{}" | awk 'END { print $1 }')"
+if [[ -z "$release_sha" && "$target_commitish" =~ ^[a-fA-F0-9]{40}$ ]]; then
+  release_sha="$target_commitish"
+fi
 
 emit "# QuickSType Release Evidence - $tag"
 emit ""
@@ -90,12 +90,19 @@ emit "| Tag | $tag |"
 emit "| Release URL | $release_url |"
 emit "| Published at | $published_at |"
 emit "| Prerelease | $is_prerelease |"
+emit "| Release target | $target_commitish |"
+emit "| Release commit | ${release_sha:-unknown} |"
 
-if [[ -n "$latest_run" ]]; then
-  run_url="$(gh run list --repo "$repo" --workflow release.yml --limit 20 --json url -q '.[0].url')"
-  run_status="$(gh run list --repo "$repo" --workflow release.yml --limit 20 --json status -q '.[0].status')"
-  run_conclusion="$(gh run list --repo "$repo" --workflow release.yml --limit 20 --json conclusion -q '.[0].conclusion')"
-  emit "| Latest release workflow run | $run_url ($run_status/$run_conclusion) |"
+if [[ -n "$release_sha" ]]; then
+  run_url="$(gh run list --repo "$repo" --workflow release.yml --limit 50 --json event,headSha,url -q "map(select(.headSha == \"$release_sha\" and (.event == \"workflow_dispatch\" or .event == \"push\"))) | .[0].url // empty")"
+  run_status="$(gh run list --repo "$repo" --workflow release.yml --limit 50 --json event,headSha,status -q "map(select(.headSha == \"$release_sha\" and (.event == \"workflow_dispatch\" or .event == \"push\"))) | .[0].status // empty")"
+  run_conclusion="$(gh run list --repo "$repo" --workflow release.yml --limit 50 --json conclusion,event,headSha -q "map(select(.headSha == \"$release_sha\" and (.event == \"workflow_dispatch\" or .event == \"push\"))) | .[0].conclusion // empty")"
+fi
+
+if [[ -n "${run_url:-}" ]]; then
+  emit "| Matching release workflow run | $run_url ($run_status/$run_conclusion) |"
+else
+  emit "| Matching release workflow run | not found for release commit |"
 fi
 
 emit ""
