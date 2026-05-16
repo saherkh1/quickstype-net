@@ -93,6 +93,14 @@
           </StackPanel>
 
           <StackPanel Spacing="6">
+            <TextBlock Classes="h2" Text="Appearance" />
+            <TextBlock Classes="muted" Text="Window translucency and blur. Auto disables on older hardware." />
+            <ComboBox ItemsSource="{Binding AppearanceSettings}"
+                      SelectedItem="{Binding AppearanceSetting}"
+                      HorizontalAlignment="Stretch" />
+          </StackPanel>
+
+          <StackPanel Spacing="6">
             <TextBlock Classes="h2" Text="Startup" />
             <CheckBox Content="Show transcription notifications" IsChecked="{Binding ShowNotifications}"
                       Command="{Binding ToggleNotificationsCommand}" />

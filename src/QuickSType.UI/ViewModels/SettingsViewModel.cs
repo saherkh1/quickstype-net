@@ -27,6 +27,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string? _selectedAudioDevice;
     [ObservableProperty] private string _transcriptionBackend;
     [ObservableProperty] private string _streamingMode;
+    [ObservableProperty] private string _appearanceSetting;
     [ObservableProperty] private bool _showNotifications;
     [ObservableProperty] private bool _startAtLogin;
     [ObservableProperty] private string _testTranscriptionResult = string.Empty;
@@ -41,6 +42,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     public ObservableCollection<AudioDeviceInfo> AudioDevices { get; }
     public ObservableCollection<LanguageRow> AvailableLanguages { get; }
     public ObservableCollection<string> Backends { get; } = new() { "auto", "cpu", "metal", "cuda" };
+    public ObservableCollection<string> AppearanceSettings { get; } = new() { "Auto", "On", "Off" };
     public ObservableCollection<StreamingModeOption> StreamingModes { get; } = new()
     {
         new("auto", "Auto (recommended)"),
@@ -92,6 +94,12 @@ public sealed partial class SettingsViewModel : ObservableObject
         _selectedAudioDevice = c.SelectedAudioDevice;
         _transcriptionBackend = c.TranscriptionBackend;
         _streamingMode = c.StreamingMode;
+        _appearanceSetting = c.EnableVibrancy switch
+        {
+            true => "On",
+            false => "Off",
+            null => "Auto",
+        };
         _showNotifications = c.ShowNotifications;
         _startAtLogin = host.AutoLaunch.IsEnabled();
 
@@ -142,6 +150,17 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         if (_suppressLanguageSync) return;
         _host.UpdateConfig(_host.Config.WithAutoLanguage(value));
+    }
+
+    partial void OnAppearanceSettingChanged(string value)
+    {
+        var vibrancy = value switch
+        {
+            "On" => (bool?)true,
+            "Off" => (bool?)false,
+            _ => (bool?)null,
+        };
+        Save(c => c with { EnableVibrancy = vibrancy });
     }
 
     private void OnLanguageRowChanged(object? sender, PropertyChangedEventArgs e)

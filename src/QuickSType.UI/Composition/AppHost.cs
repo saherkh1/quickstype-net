@@ -197,6 +197,21 @@ public sealed class AppHost : IDisposable
 
     public event Action<AppConfig>? ConfigChanged;
 
+    /// <summary>
+    /// Resolves whether vibrancy/blur should be enabled based on config and hardware tier.
+    /// If EnableVibrancy is null (auto), returns true for Apple Silicon, WindowsCuda, and Ram16Plus
+    /// tier systems; false for LowResource and other tiers where blur has visual artifacts.
+    /// </summary>
+    public bool ResolveVibrancyEnabled()
+    {
+        return Config.EnableVibrancy switch
+        {
+            true => true,
+            false => false,
+            null => SystemSpecs.Tier is HardwareTier.AppleSilicon or HardwareTier.WindowsCuda or HardwareTier.Ram16Plus,
+        };
+    }
+
     public Task StartAsync()
     {
         _ = Hotkey.RunAsync();
