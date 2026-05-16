@@ -97,7 +97,13 @@ export AZURE_ARTIFACT_SIGNING_CERT_PROFILE='...'
 bash build/configure-release-secrets.sh saherkh1/quickstype-net
 ```
 
-The helper uploads each secret with `gh secret set`, then runs `build/check-release-prereqs.sh` so missing names are caught immediately.
+To validate that the local environment is complete before uploading anything, run:
+
+```bash
+bash build/configure-release-secrets.sh --check-env saherkh1/quickstype-net
+```
+
+The check prints only variable names and file-path errors, never secret values. The upload mode uploads each secret with `gh secret set`, then runs `build/check-release-prereqs.sh` so missing names are caught immediately.
 
 ## Canary Dispatch
 

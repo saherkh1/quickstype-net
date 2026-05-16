@@ -1,7 +1,31 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo="${1:-}"
+check_env_only=0
+repo=""
+
+for arg in "$@"; do
+  case "$arg" in
+    --check-env)
+      check_env_only=1
+      ;;
+    -h|--help)
+      echo "Usage: $0 [--check-env] [owner/repo]" >&2
+      echo "  --check-env  Validate required local environment variables without uploading secrets." >&2
+      exit 0
+      ;;
+    *)
+      if [[ -z "$repo" ]]; then
+        repo="$arg"
+      else
+        echo "Unexpected argument: $arg" >&2
+        echo "Usage: $0 [--check-env] [owner/repo]" >&2
+        exit 64
+      fi
+      ;;
+  esac
+done
+
 if [[ -z "$repo" ]]; then
   if repo="$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null)"; then
     :
@@ -65,12 +89,14 @@ set_secret() {
   echo "secret: $name configured"
 }
 
-require_command gh
 require_command git
-require_command base64
-require_command tr
+if [[ "$check_env_only" -eq 0 ]]; then
+  require_command gh
+  require_command base64
+  require_command tr
+fi
 
-if ! gh auth status >/dev/null 2>&1; then
+if [[ "$check_env_only" -eq 0 ]] && ! gh auth status >/dev/null 2>&1; then
   echo "GitHub CLI is not authenticated. Run: gh auth login" >&2
   exit 1
 fi
@@ -83,6 +109,8 @@ for spec in "${p12_secret_specs[@]}"; do
 
   if [[ -z "$secret_value" && -z "$path_value" ]]; then
     missing+=("$secret_name or $path_name")
+  elif [[ -z "$secret_value" && ! -f "$path_value" ]]; then
+    missing+=("$path_name file does not exist")
   fi
 done
 
@@ -98,6 +126,12 @@ if [[ "${#missing[@]}" -ne 0 ]]; then
     echo "  - $name" >&2
   done
   exit 1
+fi
+
+if [[ "$check_env_only" -eq 1 ]]; then
+  echo "All required local release secret inputs are present for $repo."
+  echo "No secrets were uploaded."
+  exit 0
 fi
 
 echo "Configuring release secrets for $repo"
