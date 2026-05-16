@@ -106,6 +106,8 @@ done
 require_reference "$repo_root/build/collect-release-evidence.sh" "expected-release-run-id"
 require_reference "$repo_root/build/collect-release-evidence.sh" "gh run view"
 require_reference "$repo_root/build/run-canary-release.sh" "run-id-output"
+require_reference "$repo_root/build/run-canary-release.sh" "dispatch_started_at"
+require_reference "$repo_root/build/run-canary-release.sh" "createdAt >="
 require_reference "$repo_root/build/run-canary-pair.sh" "run_id_file"
 require_reference "$repo_root/build/run-stable-release.sh" "run_id_file"
 

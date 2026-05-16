@@ -44,6 +44,7 @@ if [[ "$head_sha" != "$remote_sha" ]]; then
 fi
 
 echo "Dispatching release workflow for $repo version=$version channel=$channel"
+dispatch_started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 gh workflow run release.yml \
   --repo "$repo" \
   --ref "$branch" \
@@ -57,9 +58,9 @@ for _ in {1..20}; do
     --repo "$repo" \
     --workflow release.yml \
     --branch "$branch" \
-    --limit 1 \
-    --json databaseId,event,headSha,status \
-    -q ".[] | select(.event == \"workflow_dispatch\" and .headSha == \"$head_sha\") | .databaseId" || true)"
+    --limit 20 \
+    --json createdAt,databaseId,event,headSha,status \
+    -q "map(select(.event == \"workflow_dispatch\" and .headSha == \"$head_sha\" and .createdAt >= \"$dispatch_started_at\")) | .[0].databaseId // empty" || true)"
   if [[ -n "$run_id" ]]; then
     break
   fi
