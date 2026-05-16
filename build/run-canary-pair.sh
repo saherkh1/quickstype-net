@@ -26,15 +26,21 @@ if [[ "$first_version" == "$second_version" ]]; then
 fi
 
 script_dir="$(cd "$(dirname "$0")" && pwd)"
+tmpdir="$(mktemp -d)"
+cleanup() {
+  rm -rf "$tmpdir"
+}
+trap cleanup EXIT
 
 for version in "$first_version" "$second_version"; do
   evidence_output=".planning/release-evidence-v${version}.md"
+  run_id_file="$tmpdir/release-run-id-v${version}"
 
   echo "Running canary release v$version for $repo"
-  bash "$script_dir/run-canary-release.sh" "$version" canary "$repo"
+  bash "$script_dir/run-canary-release.sh" "$version" canary "$repo" "$run_id_file"
 
   echo "Collecting canary release evidence for v$version"
-  bash "$script_dir/collect-release-evidence.sh" "$version" "$repo" "$evidence_output"
+  bash "$script_dir/collect-release-evidence.sh" "$version" "$repo" "$evidence_output" "$(cat "$run_id_file")"
   echo "Canary evidence written to $evidence_output"
 done
 

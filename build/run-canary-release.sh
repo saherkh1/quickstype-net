@@ -4,10 +4,11 @@ set -euo pipefail
 version="${1:-}"
 channel="${2:-canary}"
 repo="${3:-}"
+run_id_output="${4:-}"
 
 if [[ -z "$version" ]]; then
-  echo "Usage: $0 <version> [channel] [owner/repo]" >&2
-  echo "Example: $0 0.99.0 canary saherkh1/quickstype-net" >&2
+  echo "Usage: $0 <version> [channel] [owner/repo] [run-id-output]" >&2
+  echo "Example: $0 0.99.0 canary saherkh1/quickstype-net /tmp/quickstype-release-run-id" >&2
   exit 64
 fi
 
@@ -72,3 +73,9 @@ fi
 
 echo "Watching release workflow run $run_id"
 gh run watch "$run_id" --repo "$repo" --exit-status
+
+if [[ -n "$run_id_output" ]]; then
+  mkdir -p "$(dirname "$run_id_output")"
+  printf '%s\n' "$run_id" >"$run_id_output"
+  echo "Wrote release workflow run id to $run_id_output"
+fi

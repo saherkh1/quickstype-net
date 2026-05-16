@@ -103,6 +103,12 @@ for evidence in \
   require_reference "$repo_root/build/audit-release-readiness.sh" "$evidence"
 done
 
+require_reference "$repo_root/build/collect-release-evidence.sh" "expected-release-run-id"
+require_reference "$repo_root/build/collect-release-evidence.sh" "gh run view"
+require_reference "$repo_root/build/run-canary-release.sh" "run-id-output"
+require_reference "$repo_root/build/run-canary-pair.sh" "run_id_file"
+require_reference "$repo_root/build/run-stable-release.sh" "run_id_file"
+
 if command -v shellcheck >/dev/null 2>&1; then
   shellcheck \
     "$repo_root"/build/*.sh \
@@ -369,6 +375,10 @@ cat > "$good_evidence" <<'EVIDENCE'
 EVIDENCE
 
 bash "$repo_root/build/validate-release-evidence.sh" "$good_evidence" false v1.0.0 >/dev/null
+
+run_id_evidence="$tmp_dir/run-id-release-evidence-v1.0.0.md"
+sed 's#(completed/success)#(completed/success; run 123456789)#' "$good_evidence" >"$run_id_evidence"
+bash "$repo_root/build/validate-release-evidence.sh" "$run_id_evidence" false v1.0.0 >/dev/null
 
 if bash "$repo_root/build/validate-release-evidence.sh" "$good_evidence" true >"$tmp_dir/prerelease-validation.log" 2>&1; then
   echo "validate-release-evidence.sh allowed stable evidence when canary prerelease evidence was required." >&2

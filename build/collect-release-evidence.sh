@@ -4,10 +4,11 @@ set -euo pipefail
 version="${1:-}"
 repo="${2:-}"
 output="${3:-}"
+expected_run_id="${4:-}"
 
 if [[ -z "$version" ]]; then
-  echo "Usage: $0 <version> [owner/repo] [output.md]" >&2
-  echo "Example: $0 0.99.0 saherkh1/quickstype-net .planning/release-evidence-v0.99.0.md" >&2
+  echo "Usage: $0 <version> [owner/repo] [output.md] [expected-release-run-id]" >&2
+  echo "Example: $0 0.99.0 saherkh1/quickstype-net .planning/release-evidence-v0.99.0.md 123456789" >&2
   exit 64
 fi
 
@@ -93,7 +94,23 @@ emit "| Prerelease | $is_prerelease |"
 emit "| Release target | $target_commitish |"
 emit "| Release commit | ${release_sha:-unknown} |"
 
-if [[ -n "$release_sha" ]]; then
+if [[ -n "$expected_run_id" ]]; then
+  run_url="$(gh run view "$expected_run_id" --repo "$repo" --json url -q .url)"
+  run_status="$(gh run view "$expected_run_id" --repo "$repo" --json status -q .status)"
+  run_conclusion="$(gh run view "$expected_run_id" --repo "$repo" --json conclusion -q '.conclusion // ""')"
+  run_head_sha="$(gh run view "$expected_run_id" --repo "$repo" --json headSha -q .headSha)"
+  run_workflow_name="$(gh run view "$expected_run_id" --repo "$repo" --json workflowName -q .workflowName)"
+
+  if [[ "$run_workflow_name" != "release" ]]; then
+    echo "Expected release workflow run $expected_run_id, got workflow '$run_workflow_name'." >&2
+    exit 1
+  fi
+
+  if [[ -n "$release_sha" && "$run_head_sha" != "$release_sha" ]]; then
+    echo "Release workflow run $expected_run_id is for $run_head_sha, but $tag resolved to ${release_sha:-unknown}." >&2
+    exit 1
+  fi
+elif [[ -n "$release_sha" ]]; then
   run_url="$(gh run list --repo "$repo" --workflow release.yml --limit 50 --json event,headSha,url -q "map(select(.headSha == \"$release_sha\" and (.event == \"workflow_dispatch\" or .event == \"push\"))) | .[0].url // empty")"
   run_status="$(gh run list --repo "$repo" --workflow release.yml --limit 50 --json event,headSha,status -q "map(select(.headSha == \"$release_sha\" and (.event == \"workflow_dispatch\" or .event == \"push\"))) | .[0].status // empty")"
   run_conclusion="$(gh run list --repo "$repo" --workflow release.yml --limit 50 --json conclusion,event,headSha -q "map(select(.headSha == \"$release_sha\" and (.event == \"workflow_dispatch\" or .event == \"push\"))) | .[0].conclusion // empty")"
@@ -104,7 +121,11 @@ if [[ -n "${run_url:-}" ]]; then
     echo "Matching release workflow for $tag is not successful: $run_url ($run_status/$run_conclusion)" >&2
     exit 1
   fi
-  emit "| Matching release workflow run | $run_url ($run_status/$run_conclusion) |"
+  if [[ -n "$expected_run_id" ]]; then
+    emit "| Matching release workflow run | $run_url ($run_status/$run_conclusion; run $expected_run_id) |"
+  else
+    emit "| Matching release workflow run | $run_url ($run_status/$run_conclusion) |"
+  fi
 else
   echo "Could not find a matching release workflow run for $tag at release commit ${release_sha:-unknown}." >&2
   exit 1

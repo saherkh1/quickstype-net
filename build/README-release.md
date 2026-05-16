@@ -133,7 +133,7 @@ To run both Phase 6 canary releases sequentially and collect both evidence files
 bash build/run-canary-pair.sh saherkh1/quickstype-net
 ```
 
-The pair helper writes `.planning/release-evidence-v0.99.0.md` and `.planning/release-evidence-v0.99.1.md` after each successful release workflow. After it finishes, install `v0.99.0`, update to `v0.99.1`, and fill `tests/manual/UPDATE_CANARY_MATRIX.md`.
+The pair helper writes `.planning/release-evidence-v0.99.0.md` and `.planning/release-evidence-v0.99.1.md` after each successful release workflow. It passes the exact dispatched workflow run id into evidence collection, so the evidence file is tied to the run that produced that release rather than any other release workflow on the same commit. After it finishes, install `v0.99.0`, update to `v0.99.1`, and fill `tests/manual/UPDATE_CANARY_MATRIX.md`.
 
 ## Stable Dispatch
 
@@ -143,7 +143,7 @@ For the final public release, dispatch the workflow manually on the stable chann
 bash build/run-stable-release.sh 1.0.0 saherkh1/quickstype-net
 ```
 
-The stable helper uses the same release preflight checks, dispatches `release.yml` with `channel=stable`, watches the workflow, and writes `.planning/release-evidence-v1.0.0.md` from the uploaded GitHub Release assets.
+The stable helper uses the same release preflight checks, dispatches `release.yml` with `channel=stable`, watches the workflow, and writes `.planning/release-evidence-v1.0.0.md` from the uploaded GitHub Release assets. It also passes the exact dispatched workflow run id into evidence collection.
 
 To run the stable release and immediately generate Homebrew/Winget manifests from the collected evidence:
 
@@ -177,6 +177,12 @@ bash build/collect-release-evidence.sh 0.99.1 saherkh1/quickstype-net .planning/
 bash build/collect-release-evidence.sh 1.0.0 saherkh1/quickstype-net .planning/release-evidence-v1.0.0.md
 ```
 
+When collecting evidence manually, pass the expected release workflow run id as the fourth argument if there are multiple release runs on the same commit:
+
+```bash
+bash build/collect-release-evidence.sh 1.0.0 saherkh1/quickstype-net .planning/release-evidence-v1.0.0.md 123456789
+```
+
 Use the generated evidence files to fill `tests/manual/UPDATE_CANARY_MATRIX.md`, `tests/manual/TELEMETRY_MATRIX.md`, and to pass exact uploaded asset URLs/checksums into the Homebrew and Winget manifest generators. The telemetry matrix uses the signed app's hidden `--telemetry-smoke-test` command with a release-operator Sentry DSN to prove opt-in capture and scrubbed payloads. Before closing a release gate, check every Manual Sign-Off item in the relevant evidence file.
 
 Validate each evidence file before relying on it:
@@ -187,7 +193,7 @@ bash build/validate-release-evidence.sh .planning/release-evidence-v0.99.1.md tr
 bash build/validate-release-evidence.sh .planning/release-evidence-v1.0.0.md false v1.0.0
 ```
 
-The validator requires completed manual sign-off, a matching release tag when provided, a 40-character release commit, a matching `release.yml` workflow run recorded as `completed/success`, and both `QuickSType-*-Setup.pkg` and `QuickSType-*-Setup.exe` assets with SHA-256 values. Pass `true` or `false` as a second argument when the gate must prove canary prerelease status or stable release status, and pass the expected `v*` tag as the third argument when validating a specific release gate.
+The validator requires completed manual sign-off, a matching release tag when provided, a 40-character release commit, a matching `release.yml` workflow run recorded as `completed/success`, and both `QuickSType-*-Setup.pkg` and `QuickSType-*-Setup.exe` assets with SHA-256 values. Evidence collected by the release helpers also records the exact run id in that workflow field. Pass `true` or `false` as a second argument when the gate must prove canary prerelease status or stable release status, and pass the expected `v*` tag as the third argument when validating a specific release gate.
 
 ## Audit Release Readiness
 

@@ -57,7 +57,7 @@ if ! grep -Eq '^\| Release commit \| [a-fA-F0-9]{40} \|$' "$evidence"; then
   exit 1
 fi
 
-if ! grep -Eq '^\| Matching release workflow run \| .+ \(completed/success\) \|$' "$evidence"; then
+if ! grep -Eq '^\| Matching release workflow run \| .+ \(completed/success(; run [0-9]+)?\) \|$' "$evidence"; then
   echo "Release evidence does not identify a successful release workflow run: $evidence" >&2
   exit 1
 fi
