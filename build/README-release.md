@@ -110,6 +110,16 @@ bash build/run-canary-release.sh 0.99.1 canary saherkh1/quickstype-net
 
 The helper refuses to run with a dirty working tree, verifies local `HEAD` matches the remote branch, checks workflows/secrets, dispatches `release.yml`, and watches the GitHub Actions run.
 
+## Stable Dispatch
+
+For the final public release, dispatch the workflow manually on the stable channel. Do not rely on a tag push for stable, because tag pushes intentionally default to the canary channel during Phase 6.
+
+```bash
+bash build/run-stable-release.sh 1.0.0 saherkh1/quickstype-net
+```
+
+The stable helper uses the same release preflight checks, dispatches `release.yml` with `channel=stable`, watches the workflow, and writes `.planning/release-evidence-v1.0.0.md` from the uploaded GitHub Release assets.
+
 ## Expected Release Assets
 
 Each platform upload should add the Velopack package output for the selected channel, including:
@@ -129,6 +139,7 @@ After a canary or stable release workflow passes, collect the release URL, workf
 ```bash
 bash build/collect-release-evidence.sh 0.99.0 saherkh1/quickstype-net .planning/release-evidence-v0.99.0.md
 bash build/collect-release-evidence.sh 0.99.1 saherkh1/quickstype-net .planning/release-evidence-v0.99.1.md
+bash build/collect-release-evidence.sh 1.0.0 saherkh1/quickstype-net .planning/release-evidence-v1.0.0.md
 ```
 
 Use the generated evidence files to fill `tests/manual/UPDATE_CANARY_MATRIX.md` and to pass exact uploaded asset URLs/checksums into the Homebrew and Winget manifest generators.
