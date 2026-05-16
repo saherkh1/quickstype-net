@@ -26,11 +26,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     name: aot-publish (${{ matrix.rid }})
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # Per RESEARCH.md Pitfall 2 / setup-dotnet#711: do NOT pass `dotnet-version`.
       # The action reads global.json (10.0.100, rollForward latestFeature).
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
 
       - name: dotnet --info
         run: dotnet --info
@@ -43,7 +43,7 @@ jobs:
         # Directory.Build.props injects WarningsAsErrors=IL2026;IL3050 at Release.
 
       - name: Upload published artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: quickstype-${{ matrix.rid }}
           path: src/QuickSType.UI/bin/Release/net10.0/${{ matrix.rid }}/publish/
@@ -66,7 +66,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     name: smoke (${{ matrix.rid }})
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # Read manifest entry for ggml-tiny — its SHA-256 is the cache key.
       - name: Read ggml-tiny SHA-256 from manifest
@@ -108,7 +108,7 @@ jobs:
           fi
 
       - name: Download published artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: quickstype-${{ matrix.rid }}
           path: ${{ format('quickstype-{0}', matrix.rid) }}

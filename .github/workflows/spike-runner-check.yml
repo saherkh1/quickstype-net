@@ -8,6 +8,6 @@ jobs:
         runner: [macos-14, macos-13, windows-2022]
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - run: echo "Runner alive on ${{ matrix.runner }}"
       - run: uname -a || systeminfo

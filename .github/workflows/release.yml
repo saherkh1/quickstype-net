@@ -30,9 +30,9 @@ jobs:
     runs-on: macos-14
     name: macOS signed/notarized release
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
 
       - name: Resolve release metadata
         shell: bash
@@ -171,7 +171,7 @@ jobs:
             --merge \
             --publish
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: quickstype-release-osx-arm64
           path: artifacts/velopack/osx-arm64/
@@ -181,9 +181,9 @@ jobs:
     runs-on: windows-2022
     name: Windows signed release
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
 
       - name: Resolve release metadata
         shell: pwsh
@@ -310,7 +310,7 @@ jobs:
             --merge `
             --publish
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: quickstype-release-win-x64
           path: artifacts/velopack/win-x64/
