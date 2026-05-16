@@ -39,6 +39,12 @@ logs/
 *.local.json
 *.local
 appsettings.Development.json
+*.env
+*.p12
+*.pem
+*.key
+*.mobileprovision
+!*.env.example
 
 ## Models (large, downloaded at runtime)
 models/
