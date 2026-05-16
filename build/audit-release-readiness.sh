@@ -33,28 +33,6 @@ require_command() {
   fi
 }
 
-count_table_status() {
-  local file="$1"
-  local status="$2"
-  local row_pattern="$3"
-  awk -F'|' -v status="$status" -v row_pattern="$row_pattern" '
-    /^\|/ {
-      first = $2
-      gsub(/^[ \t]+|[ \t]+$/, "", first)
-      if (first !~ row_pattern) {
-        next
-      }
-      for (i = 1; i <= NF; i++) {
-        gsub(/^[ \t]+|[ \t]+$/, "", $i)
-        if ($i == status) {
-          count++
-        }
-      }
-    }
-    END { print count + 0 }
-  ' "$file"
-}
-
 check_release() {
   local tag="$1"
   if gh release view "$tag" --repo "$repo" >/dev/null 2>&1; then
@@ -153,46 +131,19 @@ for tag in v0.99.0 v0.99.1 v1.0.0; do
 done
 
 injection_matrix="tests/manual/INJECTION_MATRIX.md"
-if [[ -f "$injection_matrix" ]]; then
-  injection_pending="$(count_table_status "$injection_matrix" PENDING '^[0-9]+$')"
-  injection_deferred="$(count_table_status "$injection_matrix" DEFERRED '^[0-9]+$')"
-  injection_fail="$(count_table_status "$injection_matrix" FAIL '^[0-9]+$')"
-  if [[ "$injection_pending" -eq 0 && "$injection_deferred" -eq 0 && "$injection_fail" -eq 0 ]]; then
-    pass "HUD injection matrix has no PENDING/DEFERRED/FAIL rows"
-  else
-    fail "HUD injection matrix is not fully accepted (PENDING=$injection_pending, DEFERRED=$injection_deferred, FAIL=$injection_fail)"
-  fi
-else
-  fail "HUD injection matrix is missing: $injection_matrix"
-fi
-
 update_matrix="tests/manual/UPDATE_CANARY_MATRIX.md"
-if [[ -f "$update_matrix" ]]; then
-  update_pending="$(count_table_status "$update_matrix" PENDING '^UPDATE-CANARY-[0-9]+$')"
-  update_deferred="$(count_table_status "$update_matrix" DEFERRED '^UPDATE-CANARY-[0-9]+$')"
-  update_fail="$(count_table_status "$update_matrix" FAIL '^UPDATE-CANARY-[0-9]+$')"
-  if [[ "$update_pending" -eq 0 && "$update_deferred" -eq 0 && "$update_fail" -eq 0 ]]; then
-    pass "Canary update matrix has no PENDING/DEFERRED/FAIL rows"
-  else
-    fail "Canary update matrix is not fully accepted (PENDING=$update_pending, DEFERRED=$update_deferred, FAIL=$update_fail)"
-  fi
-else
-  fail "Canary update matrix is missing: $update_matrix"
-fi
-
 telemetry_matrix="tests/manual/TELEMETRY_MATRIX.md"
-if [[ -f "$telemetry_matrix" ]]; then
-  telemetry_pending="$(count_table_status "$telemetry_matrix" PENDING '^TELEMETRY-[0-9]+$')"
-  telemetry_deferred="$(count_table_status "$telemetry_matrix" DEFERRED '^TELEMETRY-[0-9]+$')"
-  telemetry_fail="$(count_table_status "$telemetry_matrix" FAIL '^TELEMETRY-[0-9]+$')"
-  if [[ "$telemetry_pending" -eq 0 && "$telemetry_deferred" -eq 0 && "$telemetry_fail" -eq 0 ]]; then
-    pass "Telemetry matrix has no PENDING/DEFERRED/FAIL rows"
+for matrix_spec in \
+  "$injection_matrix:injection:HUD injection matrix" \
+  "$update_matrix:update:Canary update matrix" \
+  "$telemetry_matrix:telemetry:Telemetry matrix"; do
+  IFS=':' read -r matrix kind label <<<"$matrix_spec"
+  if bash "$(dirname "$0")/validate-manual-matrix.sh" "$matrix" "$kind" >/tmp/quickstype-manual-matrix-validation.log 2>&1; then
+    pass "$label is accepted with tester/date evidence"
   else
-    fail "Telemetry matrix is not fully accepted (PENDING=$telemetry_pending, DEFERRED=$telemetry_deferred, FAIL=$telemetry_fail)"
+    fail "$(cat /tmp/quickstype-manual-matrix-validation.log)"
   fi
-else
-  fail "Telemetry matrix is missing: $telemetry_matrix"
-fi
+done
 
 for evidence_spec in \
   .planning/release-evidence-v0.99.0.md:true:v0.99.0 \

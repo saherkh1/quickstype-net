@@ -118,6 +118,7 @@ bash -n \
   "$repo_root/build/run-stable-release.sh" \
   "$repo_root/build/run-v1-release.sh" \
   "$repo_root/build/validate-release-evidence.sh" \
+  "$repo_root/build/validate-manual-matrix.sh" \
   "$repo_root/distribution/generate-from-release-evidence.sh" \
   "$repo_root/distribution/homebrew/generate-cask.sh" \
   "$repo_root/distribution/test-generate-from-release-evidence.sh" \
@@ -136,6 +137,33 @@ if ! grep -Fq "Unverified v1 release acceptance is missing" "$tmp_dir/unverified
   cat "$tmp_dir/unverified-v1.log" >&2
   exit 1
 fi
+
+bad_update_matrix="$tmp_dir/bad-update-matrix.md"
+cat > "$bad_update_matrix" <<'MATRIX'
+| ID | Platform | Scenario | Old version | New version | Install path | Update source | Expected result | Status | Tester/date | Notes |
+|----|----------|----------|-------------|-------------|--------------|---------------|-----------------|--------|-------------|-------|
+| UPDATE-CANARY-01 | macOS arm64 | Install v0.99.0, update in-app to v0.99.1 | v0.99.0 | v0.99.1 | `/Applications/QuickSType.app` | GitHub Releases canary feed | App updates and relaunches as v0.99.1 | PASS | - | - |
+MATRIX
+
+if bash "$repo_root/build/validate-manual-matrix.sh" "$bad_update_matrix" update >"$tmp_dir/bad-update-matrix.log" 2>&1; then
+  echo "validate-manual-matrix.sh allowed PASS update evidence without tester/date and notes." >&2
+  exit 1
+fi
+
+if ! grep -Eq 'Tester/date|Notes evidence' "$tmp_dir/bad-update-matrix.log"; then
+  echo "validate-manual-matrix.sh did not explain missing update row evidence." >&2
+  cat "$tmp_dir/bad-update-matrix.log" >&2
+  exit 1
+fi
+
+good_update_matrix="$tmp_dir/good-update-matrix.md"
+cat > "$good_update_matrix" <<'MATRIX'
+| ID | Platform | Scenario | Old version | New version | Install path | Update source | Expected result | Status | Tester/date | Notes |
+|----|----------|----------|-------------|-------------|--------------|---------------|-----------------|--------|-------------|-------|
+| UPDATE-CANARY-01 | macOS arm64 | Install v0.99.0, update in-app to v0.99.1 | v0.99.0 | v0.99.1 | `/Applications/QuickSType.app` | GitHub Releases canary feed | App updates and relaunches as v0.99.1 | PASS | Saher 2026-05-16 | macOS 15.5 arm64; QuickSType-canary-Setup.pkg sha256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef; release URL recorded |
+MATRIX
+
+bash "$repo_root/build/validate-manual-matrix.sh" "$good_update_matrix" update >/dev/null
 
 bad_evidence="$tmp_dir/bad-release-evidence-v1.0.0.md"
 cat > "$bad_evidence" <<'EVIDENCE'
