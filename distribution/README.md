@@ -39,3 +39,16 @@ Then validate on Windows:
 ```powershell
 winget validate distribution\winget\manifests\q\QuickSType\QuickSType\1.0.0
 ```
+
+## Generate From Release Evidence
+
+After `build/collect-release-evidence.sh` writes the final release evidence file, generate both Homebrew and WinGet manifests from the exact uploaded installer assets:
+
+```bash
+bash distribution/generate-from-release-evidence.sh \
+  1.0.0 \
+  .planning/release-evidence-v1.0.0.md \
+  saherkh1/quickstype-net
+```
+
+The helper expects the evidence file to contain a `QuickSType-*-Setup.pkg` asset and a `QuickSType-*-Setup.exe` asset with SHA-256 values.
