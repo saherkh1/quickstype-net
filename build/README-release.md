@@ -122,6 +122,17 @@ Each platform upload should add the Velopack package output for the selected cha
 
 The workflow uses `vpk upload github --merge --publish --pre` so macOS and Windows jobs can attach to the same GitHub Release.
 
+## Collect Release Evidence
+
+After a canary or stable release workflow passes, collect the release URL, workflow run pointer, asset list, byte sizes, and SHA-256 checksums:
+
+```bash
+bash build/collect-release-evidence.sh 0.99.0 saherkh1/quickstype-net .planning/release-evidence-v0.99.0.md
+bash build/collect-release-evidence.sh 0.99.1 saherkh1/quickstype-net .planning/release-evidence-v0.99.1.md
+```
+
+Use the generated evidence files to fill `tests/manual/UPDATE_CANARY_MATRIX.md` and to pass exact uploaded asset URLs/checksums into the Homebrew and Winget manifest generators.
+
 ## Current Caveats
 
 - The workflow has not been run against real Apple/Azure credentials yet.

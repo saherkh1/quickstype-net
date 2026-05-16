@@ -29,6 +29,13 @@ Record these for both `v0.99.0` and `v0.99.1`:
 - Windows Artifact Signing status
 - `releases.canary.json` checksum
 
+Use the evidence collector after each release workflow succeeds:
+
+```bash
+bash build/collect-release-evidence.sh 0.99.0 saherkh1/quickstype-net .planning/release-evidence-v0.99.0.md
+bash build/collect-release-evidence.sh 0.99.1 saherkh1/quickstype-net .planning/release-evidence-v0.99.1.md
+```
+
 ## Closure Rule
 
 Phase 6 can close only when every row is `PASS`, or when any remaining row is explicitly marked `DEFERRED` with owner/date and accepted release risk.
