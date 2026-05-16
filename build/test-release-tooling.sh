@@ -185,9 +185,9 @@ cat > "$bad_evidence" <<'EVIDENCE'
 - [x] macOS package signing identity matches expected Developer ID Application/Installer identities.
 - [x] macOS notarization and stapler validation passed in the release workflow.
 - [x] Windows Azure Artifact Signing completed for publish directory and installer.
-- [x] `tests/manual/UPDATE_CANARY_MATRIX.md` rows updated with tester/date and PASS/DEFERRED status.
-- [x] `tests/manual/INJECTION_MATRIX.md` rows updated with tester/date and PASS/DEFERRED status.
-- [x] `tests/manual/TELEMETRY_MATRIX.md` rows updated with tester/date and PASS/DEFERRED status.
+- [x] `tests/manual/UPDATE_CANARY_MATRIX.md` rows updated with PASS status plus tester/date/notes evidence.
+- [x] `tests/manual/INJECTION_MATRIX.md` rows updated with PASS status plus tester/date/notes evidence.
+- [x] `tests/manual/TELEMETRY_MATRIX.md` rows updated with PASS status plus tester/date/notes evidence.
 - [x] Homebrew and Winget manifest generators use the exact URLs and SHA-256 values above.
 EVIDENCE
 
@@ -218,9 +218,9 @@ cat > "$missing_assets_evidence" <<'EVIDENCE'
 - [x] macOS package signing identity matches expected Developer ID Application/Installer identities.
 - [x] macOS notarization and stapler validation passed in the release workflow.
 - [x] Windows Azure Artifact Signing completed for publish directory and installer.
-- [x] `tests/manual/UPDATE_CANARY_MATRIX.md` rows updated with tester/date and PASS/DEFERRED status.
-- [x] `tests/manual/INJECTION_MATRIX.md` rows updated with tester/date and PASS/DEFERRED status.
-- [x] `tests/manual/TELEMETRY_MATRIX.md` rows updated with tester/date and PASS/DEFERRED status.
+- [x] `tests/manual/UPDATE_CANARY_MATRIX.md` rows updated with PASS status plus tester/date/notes evidence.
+- [x] `tests/manual/INJECTION_MATRIX.md` rows updated with PASS status plus tester/date/notes evidence.
+- [x] `tests/manual/TELEMETRY_MATRIX.md` rows updated with PASS status plus tester/date/notes evidence.
 - [x] Homebrew and Winget manifest generators use the exact URLs and SHA-256 values above.
 EVIDENCE
 
@@ -258,9 +258,9 @@ cat > "$good_evidence" <<'EVIDENCE'
 - [x] macOS package signing identity matches expected Developer ID Application/Installer identities.
 - [x] macOS notarization and stapler validation passed in the release workflow.
 - [x] Windows Azure Artifact Signing completed for publish directory and installer.
-- [x] `tests/manual/UPDATE_CANARY_MATRIX.md` rows updated with tester/date and PASS/DEFERRED status.
-- [x] `tests/manual/INJECTION_MATRIX.md` rows updated with tester/date and PASS/DEFERRED status.
-- [x] `tests/manual/TELEMETRY_MATRIX.md` rows updated with tester/date and PASS/DEFERRED status.
+- [x] `tests/manual/UPDATE_CANARY_MATRIX.md` rows updated with PASS status plus tester/date/notes evidence.
+- [x] `tests/manual/INJECTION_MATRIX.md` rows updated with PASS status plus tester/date/notes evidence.
+- [x] `tests/manual/TELEMETRY_MATRIX.md` rows updated with PASS status plus tester/date/notes evidence.
 - [x] Homebrew and Winget manifest generators use the exact URLs and SHA-256 values above.
 EVIDENCE
 

@@ -50,4 +50,4 @@ On Windows, run the installed `QuickSType.exe --telemetry-smoke-test` from Power
 
 ## Closure Rule
 
-DIST-01 can close only when every row is `PASS`, or when any remaining row is explicitly marked `DEFERRED` with owner/date and accepted release risk.
+DIST-01 can close only when every row is `PASS` with tester/date/notes evidence. To ship without that evidence, use the explicit unverified-v1 release acceptance path; do not mark DIST-01 complete.

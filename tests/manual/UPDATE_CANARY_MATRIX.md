@@ -80,4 +80,4 @@ bash build/collect-release-evidence.sh 0.99.1 saherkh1/quickstype-net .planning/
 
 ## Closure Rule
 
-Phase 6 can close only when every row is `PASS`, or when any remaining row is explicitly marked `DEFERRED` with owner/date and accepted release risk.
+Phase 6 can close only when every row is `PASS` with tester/date/notes evidence. To ship without that evidence, use the explicit unverified-v1 release acceptance path; do not mark Phase 6 complete.
