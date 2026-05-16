@@ -71,6 +71,17 @@ bash build/check-release-prereqs.sh saherkh1/quickstype-net
 
 The script checks workflow names and secret names only; it does not read secret values.
 
+## Canary Dispatch
+
+After the prerequisite check passes, dispatch and watch a canary release:
+
+```bash
+bash build/run-canary-release.sh 0.99.0 canary saherkh1/quickstype-net
+bash build/run-canary-release.sh 0.99.1 canary saherkh1/quickstype-net
+```
+
+The helper refuses to run with a dirty working tree, verifies local `HEAD` matches the remote branch, checks workflows/secrets, dispatches `release.yml`, and watches the GitHub Actions run.
+
 ## Expected Release Assets
 
 Each platform upload should add the Velopack package output for the selected channel, including:
