@@ -168,6 +168,37 @@ if ! grep -Eq 'release commit|successful release workflow run' "$tmp_dir/bad-evi
   exit 1
 fi
 
+missing_assets_evidence="$tmp_dir/missing-assets-release-evidence-v1.0.0.md"
+cat > "$missing_assets_evidence" <<'EVIDENCE'
+# QuickSType Release Evidence - v1.0.0
+
+| Field | Value |
+|-------|-------|
+| Release commit | 0123456789abcdef0123456789abcdef01234567 |
+| Matching release workflow run | https://github.com/saherkh1/quickstype-net/actions/runs/123 (completed/success) |
+
+## Manual Sign-Off
+
+- [x] macOS package signing identity matches expected Developer ID Application/Installer identities.
+- [x] macOS notarization and stapler validation passed in the release workflow.
+- [x] Windows Azure Artifact Signing completed for publish directory and installer.
+- [x] `tests/manual/UPDATE_CANARY_MATRIX.md` rows updated with tester/date and PASS/DEFERRED status.
+- [x] `tests/manual/INJECTION_MATRIX.md` rows updated with tester/date and PASS/DEFERRED status.
+- [x] `tests/manual/TELEMETRY_MATRIX.md` rows updated with tester/date and PASS/DEFERRED status.
+- [x] Homebrew and Winget manifest generators use the exact URLs and SHA-256 values above.
+EVIDENCE
+
+if bash "$repo_root/build/validate-release-evidence.sh" "$missing_assets_evidence" >"$tmp_dir/missing-assets-validation.log" 2>&1; then
+  echo "validate-release-evidence.sh allowed release evidence without setup asset checksums." >&2
+  exit 1
+fi
+
+if ! grep -Fq 'setup assets with SHA-256 values' "$tmp_dir/missing-assets-validation.log"; then
+  echo "validate-release-evidence.sh did not explain missing setup asset checksums." >&2
+  cat "$tmp_dir/missing-assets-validation.log" >&2
+  exit 1
+fi
+
 good_evidence="$tmp_dir/good-release-evidence-v1.0.0.md"
 cat > "$good_evidence" <<'EVIDENCE'
 # QuickSType Release Evidence - v1.0.0
@@ -176,6 +207,13 @@ cat > "$good_evidence" <<'EVIDENCE'
 |-------|-------|
 | Release commit | 0123456789abcdef0123456789abcdef01234567 |
 | Matching release workflow run | https://github.com/saherkh1/quickstype-net/actions/runs/123 (completed/success) |
+
+## Asset Checksums
+
+| Asset | Size bytes | SHA-256 |
+|-------|------------|---------|
+| QuickSType-stable-Setup.pkg | 123 | 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef |
+| QuickSType-stable-Setup.exe | 456 | fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210 |
 
 ## Manual Sign-Off
 
