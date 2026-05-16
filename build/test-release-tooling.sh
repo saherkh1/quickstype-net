@@ -177,6 +177,38 @@ if ! grep -Fq "Unverified v1 release acceptance is missing Rationale" "$tmp_dir/
   exit 1
 fi
 
+missing_scope_acceptance="$tmp_dir/missing-scope-acceptance.md"
+cat > "$missing_scope_acceptance" <<'ACCEPTANCE'
+# QuickSType Unverified v1 Release Acceptance
+
+Owner: Saher
+Date: 2026-05-16
+Risk: High
+
+## Scope
+
+- [x] Missing or deferred HUD injection rows are accepted for this release.
+- [x] Missing or deferred canary update rows are accepted for this release.
+- [x] Missing or deferred telemetry rows are accepted for this release.
+
+## Rationale
+
+Owner accepts this release risk because the remaining evidence will be closed immediately after signed artifacts are available.
+ACCEPTANCE
+
+if QUICKSTYPE_ACCEPT_UNVERIFIED_V1=1 \
+  QUICKSTYPE_UNVERIFIED_V1_ACCEPTANCE_FILE="$missing_scope_acceptance" \
+  bash "$repo_root/build/run-v1-release.sh" 1.0.0 owner/repo "$tmp_dir/evidence.md" >"$tmp_dir/missing-scope-acceptance.log" 2>&1; then
+  echo "run-v1-release.sh allowed unverified release without every accepted scope." >&2
+  exit 1
+fi
+
+if ! grep -Fq "Unverified v1 release acceptance is missing accepted scope" "$tmp_dir/missing-scope-acceptance.log"; then
+  echo "run-v1-release.sh did not explain missing unverified acceptance scope." >&2
+  cat "$tmp_dir/missing-scope-acceptance.log" >&2
+  exit 1
+fi
+
 bad_update_matrix="$tmp_dir/bad-update-matrix.md"
 cat > "$bad_update_matrix" <<'MATRIX'
 | ID | Platform | Scenario | Old version | New version | Install path | Update source | Expected result | Status | Tester/date | Notes |

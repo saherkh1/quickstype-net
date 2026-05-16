@@ -49,6 +49,7 @@ require_release_evidence_signoff() {
 
 require_unverified_acceptance() {
   local acceptance_file="${QUICKSTYPE_UNVERIFIED_V1_ACCEPTANCE_FILE:-$repo_root/.planning/unverified-v1-release-acceptance.md}"
+  local required_scope
 
   if [[ ! -s "$acceptance_file" ]]; then
     echo "Unverified v1 release acceptance is missing: ${acceptance_file#"$repo_root"/}" >&2
@@ -92,6 +93,17 @@ require_unverified_acceptance() {
     echo "Unverified v1 release acceptance has unchecked scope boxes: ${acceptance_file#"$repo_root"/}" >&2
     return 1
   fi
+
+  for required_scope in \
+    "- [x] Missing or deferred HUD injection rows are accepted for this release." \
+    "- [x] Missing or deferred canary update rows are accepted for this release." \
+    "- [x] Missing or deferred telemetry rows are accepted for this release." \
+    "- [x] Missing canary release evidence sign-off is accepted for this release."; do
+    if ! grep -Fxq -- "$required_scope" "$acceptance_file"; then
+      echo "Unverified v1 release acceptance is missing accepted scope: $required_scope" >&2
+      return 1
+    fi
+  done
 
   echo "Using unverified v1 release acceptance: ${acceptance_file#"$repo_root"/}"
 }
