@@ -155,6 +155,20 @@ else
   fail "Canary update matrix is missing: $update_matrix"
 fi
 
+telemetry_matrix="tests/manual/TELEMETRY_MATRIX.md"
+if [[ -f "$telemetry_matrix" ]]; then
+  telemetry_pending="$(count_table_status "$telemetry_matrix" PENDING '^TELEMETRY-[0-9]+$')"
+  telemetry_deferred="$(count_table_status "$telemetry_matrix" DEFERRED '^TELEMETRY-[0-9]+$')"
+  telemetry_fail="$(count_table_status "$telemetry_matrix" FAIL '^TELEMETRY-[0-9]+$')"
+  if [[ "$telemetry_pending" -eq 0 && "$telemetry_deferred" -eq 0 && "$telemetry_fail" -eq 0 ]]; then
+    pass "Telemetry matrix has no PENDING/DEFERRED/FAIL rows"
+  else
+    fail "Telemetry matrix is not fully accepted (PENDING=$telemetry_pending, DEFERRED=$telemetry_deferred, FAIL=$telemetry_fail)"
+  fi
+else
+  fail "Telemetry matrix is missing: $telemetry_matrix"
+fi
+
 for evidence in \
   .planning/release-evidence-v0.99.0.md \
   .planning/release-evidence-v0.99.1.md \

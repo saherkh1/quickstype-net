@@ -14,6 +14,9 @@ internal static class Program
         if (args.Length > 0 && args[0] == "--smoke-test")
             return SmokeHarness.Run(args.AsSpan(1).ToArray());
 
+        if (args.Length > 0 && args[0] == "--telemetry-smoke-test")
+            return TelemetrySmokeHarness.Run();
+
         try
         {
             VelopackApp.Build().Run();

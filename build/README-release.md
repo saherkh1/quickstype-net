@@ -151,7 +151,7 @@ To run the stable release and immediately generate Homebrew/Winget manifests fro
 bash build/run-v1-release.sh 1.0.0 saherkh1/quickstype-net
 ```
 
-The v1 helper requires `.planning/release-evidence-v0.99.0.md`, `.planning/release-evidence-v0.99.1.md`, completed manual sign-off checkboxes in those canary evidence files, an accepted `tests/manual/UPDATE_CANARY_MATRIX.md`, and an accepted `tests/manual/INJECTION_MATRIX.md` before dispatching the stable release. It then writes `.planning/release-evidence-v1.0.0.md` and calls `distribution/generate-from-release-evidence.sh` to create `distribution/homebrew/quickstype.rb` and Winget manifest YAML.
+The v1 helper requires `.planning/release-evidence-v0.99.0.md`, `.planning/release-evidence-v0.99.1.md`, completed manual sign-off checkboxes in those canary evidence files, an accepted `tests/manual/UPDATE_CANARY_MATRIX.md`, an accepted `tests/manual/INJECTION_MATRIX.md`, and an accepted `tests/manual/TELEMETRY_MATRIX.md` before dispatching the stable release. It then writes `.planning/release-evidence-v1.0.0.md` and calls `distribution/generate-from-release-evidence.sh` to create `distribution/homebrew/quickstype.rb` and Winget manifest YAML.
 
 If the owner explicitly accepts unresolved manual evidence as a release risk, record owner/date/risk in the relevant matrix or verification file and set `QUICKSTYPE_ACCEPT_UNVERIFIED_V1=1` for this command only.
 
@@ -177,7 +177,7 @@ bash build/collect-release-evidence.sh 0.99.1 saherkh1/quickstype-net .planning/
 bash build/collect-release-evidence.sh 1.0.0 saherkh1/quickstype-net .planning/release-evidence-v1.0.0.md
 ```
 
-Use the generated evidence files to fill `tests/manual/UPDATE_CANARY_MATRIX.md` and to pass exact uploaded asset URLs/checksums into the Homebrew and Winget manifest generators. Before closing a release gate, check every Manual Sign-Off item in the relevant evidence file.
+Use the generated evidence files to fill `tests/manual/UPDATE_CANARY_MATRIX.md`, `tests/manual/TELEMETRY_MATRIX.md`, and to pass exact uploaded asset URLs/checksums into the Homebrew and Winget manifest generators. The telemetry matrix uses the signed app's hidden `--telemetry-smoke-test` command with a release-operator Sentry DSN to prove opt-in capture and scrubbed payloads. Before closing a release gate, check every Manual Sign-Off item in the relevant evidence file.
 
 ## Audit Release Readiness
 
@@ -187,7 +187,7 @@ Before closing Phase 6, Phase 7, or the v1 release goal, run the release-readine
 bash build/audit-release-readiness.sh saherkh1/quickstype-net
 ```
 
-The audit checks the clean git state, remote branch sync, release workflow/secret prerequisites, expected canary and v1 releases, manual matrix status, release evidence files with completed manual sign-offs, generated distribution manifests, and public repository visibility. It fails closed when any required evidence is missing or unsigned-off.
+The audit checks the clean git state, remote branch sync, release workflow/secret prerequisites, expected canary and v1 releases, manual matrix status for HUD, canary updates, and telemetry, release evidence files with completed manual sign-offs, generated distribution manifests, and public repository visibility. It fails closed when any required evidence is missing or unsigned-off.
 
 ## Current Caveats
 

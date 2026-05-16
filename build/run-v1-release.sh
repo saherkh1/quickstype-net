@@ -94,6 +94,7 @@ verify_v1_release_gate() {
 
   require_clean_manual_matrix "$repo_root/tests/manual/UPDATE_CANARY_MATRIX.md" "Canary update matrix" '^UPDATE-CANARY-[0-9]+$' || failures=$((failures + 1))
   require_clean_manual_matrix "$repo_root/tests/manual/INJECTION_MATRIX.md" "HUD injection matrix" '^[0-9]+$' || failures=$((failures + 1))
+  require_clean_manual_matrix "$repo_root/tests/manual/TELEMETRY_MATRIX.md" "Telemetry matrix" '^TELEMETRY-[0-9]+$' || failures=$((failures + 1))
 
   if [[ "$failures" -ne 0 ]]; then
     echo "Stable v$version release gate failed." >&2
