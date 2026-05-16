@@ -72,7 +72,74 @@ assert_contains() {
   fi
 }
 
+expect_generator_failure() {
+  local label="$1"
+  local expected="$2"
+  shift 2
+
+  if "$@" >"$tmp_dir/$label.log" 2>&1; then
+    echo "Expected $label to fail." >&2
+    exit 1
+  fi
+
+  assert_contains "$tmp_dir/$label.log" "$expected"
+}
+
 assert_contains "$tmp_dir/incomplete-generate.log" 'missing required manual sign-off'
+
+expect_generator_failure \
+  bad-homebrew-host \
+  "Homebrew package URL must be a GitHub release QuickSType .pkg asset URL." \
+  bash "$repo_root/distribution/homebrew/generate-cask.sh" \
+    1.0.0 \
+    "https://example.com/saherkh1/quickstype-net/releases/download/v1.0.0/QuickSType-stable-Setup.pkg" \
+    "$sha_mac" \
+    "$tmp_dir/bad-homebrew-host.rb"
+
+expect_generator_failure \
+  bad-homebrew-tag \
+  "Homebrew package URL release tag must match version v1.0.0." \
+  bash "$repo_root/distribution/homebrew/generate-cask.sh" \
+    1.0.0 \
+    "https://github.com/saherkh1/quickstype-net/releases/download/v1.0.1/QuickSType-stable-Setup.pkg" \
+    "$sha_mac" \
+    "$tmp_dir/bad-homebrew-tag.rb"
+
+expect_generator_failure \
+  bad-homebrew-extension \
+  "Homebrew package URL must be a GitHub release QuickSType .pkg asset URL." \
+  bash "$repo_root/distribution/homebrew/generate-cask.sh" \
+    1.0.0 \
+    "https://github.com/saherkh1/quickstype-net/releases/download/v1.0.0/QuickSType-stable-Setup.exe" \
+    "$sha_mac" \
+    "$tmp_dir/bad-homebrew-extension.rb"
+
+expect_generator_failure \
+  bad-winget-host \
+  "Winget installer URL must be a GitHub release QuickSType .exe asset URL." \
+  bash "$repo_root/distribution/winget/generate-winget-manifests.sh" \
+    1.0.0 \
+    "https://example.com/saherkh1/quickstype-net/releases/download/v1.0.0/QuickSType-stable-Setup.exe" \
+    "$sha_win" \
+    "$tmp_dir/bad-winget-host"
+
+expect_generator_failure \
+  bad-winget-tag \
+  "Winget installer URL release tag must match version v1.0.0." \
+  bash "$repo_root/distribution/winget/generate-winget-manifests.sh" \
+    1.0.0 \
+    "https://github.com/saherkh1/quickstype-net/releases/download/v1.0.1/QuickSType-stable-Setup.exe" \
+    "$sha_win" \
+    "$tmp_dir/bad-winget-tag"
+
+expect_generator_failure \
+  bad-winget-extension \
+  "Winget installer URL must be a GitHub release QuickSType .exe asset URL." \
+  bash "$repo_root/distribution/winget/generate-winget-manifests.sh" \
+    1.0.0 \
+    "https://github.com/saherkh1/quickstype-net/releases/download/v1.0.0/QuickSType-stable-Setup.pkg" \
+    "$sha_win" \
+    "$tmp_dir/bad-winget-extension"
 
 (
   cd "$tmp_dir"

@@ -21,6 +21,16 @@ if [[ ! "$sha256" =~ ^[a-fA-F0-9]{64}$ ]]; then
   exit 64
 fi
 
+if [[ ! "$url" =~ ^https://github[.]com/[^/]+/[^/]+/releases/download/v([0-9A-Za-z.-]+)/QuickSType-[^/]+-Setup[.]pkg$ ]]; then
+  echo "Homebrew package URL must be a GitHub release QuickSType .pkg asset URL." >&2
+  exit 64
+fi
+
+if [[ "${BASH_REMATCH[1]}" != "$version" ]]; then
+  echo "Homebrew package URL release tag must match version v$version." >&2
+  exit 64
+fi
+
 mkdir -p "$(dirname "$output")"
 pkg_name="$(basename "${url%%\?*}")"
 cat > "$output" <<CASK

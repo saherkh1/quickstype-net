@@ -21,6 +21,16 @@ if [[ ! "$sha256" =~ ^[a-fA-F0-9]{64}$ ]]; then
   exit 64
 fi
 
+if [[ ! "$installer_url" =~ ^https://github[.]com/[^/]+/[^/]+/releases/download/v([0-9A-Za-z.-]+)/QuickSType-[^/]+-Setup[.]exe$ ]]; then
+  echo "Winget installer URL must be a GitHub release QuickSType .exe asset URL." >&2
+  exit 64
+fi
+
+if [[ "${BASH_REMATCH[1]}" != "$version" ]]; then
+  echo "Winget installer URL release tag must match version v$version." >&2
+  exit 64
+fi
+
 manifest_dir="$root/$version"
 mkdir -p "$manifest_dir"
 sha256_upper="$(printf '%s' "$sha256" | tr '[:lower:]' '[:upper:]')"
