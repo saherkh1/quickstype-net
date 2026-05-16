@@ -71,6 +71,34 @@ bash build/check-release-prereqs.sh saherkh1/quickstype-net
 
 The script checks workflow names and secret names only; it does not read secret values.
 
+## Configure Repository Secrets
+
+Use `build/configure-release-secrets.sh` to upload the required GitHub repository secrets from local environment variables. The helper does not print secret values. For Apple `.p12` certificates, either provide a pre-encoded `*_P12_BASE64` value or a local `*_P12_PATH` file path; the helper will base64 encode the file before uploading it.
+
+```bash
+export APPLE_DEVELOPER_ID_APPLICATION_P12_PATH=/path/to/developer-id-application.p12
+export APPLE_DEVELOPER_ID_APPLICATION_PASSWORD='...'
+export APPLE_DEVELOPER_ID_INSTALLER_P12_PATH=/path/to/developer-id-installer.p12
+export APPLE_DEVELOPER_ID_INSTALLER_PASSWORD='...'
+export APPLE_KEYCHAIN_PASSWORD='...'
+export APPLE_DEVELOPER_ID_APPLICATION_IDENTITY='Developer ID Application: Example (TEAMID)'
+export APPLE_DEVELOPER_ID_INSTALLER_IDENTITY='Developer ID Installer: Example (TEAMID)'
+export APPLE_ID='apple-id@example.com'
+export APPLE_TEAM_ID='TEAMID'
+export APPLE_APP_SPECIFIC_PASSWORD='...'
+
+export AZURE_CLIENT_ID='...'
+export AZURE_TENANT_ID='...'
+export AZURE_SUBSCRIPTION_ID='...'
+export AZURE_ARTIFACT_SIGNING_ENDPOINT='https://eus.codesigning.azure.net/'
+export AZURE_ARTIFACT_SIGNING_ACCOUNT='...'
+export AZURE_ARTIFACT_SIGNING_CERT_PROFILE='...'
+
+bash build/configure-release-secrets.sh saherkh1/quickstype-net
+```
+
+The helper uploads each secret with `gh secret set`, then runs `build/check-release-prereqs.sh` so missing names are caught immediately.
+
 ## Canary Dispatch
 
 After the prerequisite check passes, dispatch and watch a canary release:
