@@ -144,6 +144,39 @@ if ! grep -Fq "Unverified v1 release acceptance is missing" "$tmp_dir/unverified
   exit 1
 fi
 
+no_rationale_acceptance="$tmp_dir/no-rationale-acceptance.md"
+cat > "$no_rationale_acceptance" <<'ACCEPTANCE'
+# QuickSType Unverified v1 Release Acceptance
+
+Owner: Saher
+Date: 2026-05-16
+Risk: High
+
+## Scope
+
+- [x] Missing or deferred HUD injection rows are accepted for this release.
+- [x] Missing or deferred canary update rows are accepted for this release.
+- [x] Missing or deferred telemetry rows are accepted for this release.
+- [x] Missing canary release evidence sign-off is accepted for this release.
+
+## Rationale
+
+Replace this sentence with the release owner rationale and follow-up closure plan.
+ACCEPTANCE
+
+if QUICKSTYPE_ACCEPT_UNVERIFIED_V1=1 \
+  QUICKSTYPE_UNVERIFIED_V1_ACCEPTANCE_FILE="$no_rationale_acceptance" \
+  bash "$repo_root/build/run-v1-release.sh" 1.0.0 owner/repo "$tmp_dir/evidence.md" >"$tmp_dir/no-rationale-acceptance.log" 2>&1; then
+  echo "run-v1-release.sh allowed unverified release without a filled rationale." >&2
+  exit 1
+fi
+
+if ! grep -Fq "Unverified v1 release acceptance is missing Rationale" "$tmp_dir/no-rationale-acceptance.log"; then
+  echo "run-v1-release.sh did not explain missing unverified acceptance rationale." >&2
+  cat "$tmp_dir/no-rationale-acceptance.log" >&2
+  exit 1
+fi
+
 bad_update_matrix="$tmp_dir/bad-update-matrix.md"
 cat > "$bad_update_matrix" <<'MATRIX'
 | ID | Platform | Scenario | Old version | New version | Install path | Update source | Expected result | Status | Tester/date | Notes |

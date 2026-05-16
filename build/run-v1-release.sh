@@ -71,6 +71,23 @@ require_unverified_acceptance() {
     return 1
   fi
 
+  if ! awk '
+    /^## Rationale[[:space:]]*$/ { in_rationale = 1; next }
+    /^## / && in_rationale { in_rationale = 0 }
+    in_rationale {
+      line = $0
+      sub(/^[[:space:]]*/, "", line)
+      sub(/[[:space:]]*$/, "", line)
+      if (line != "" && line != "Replace this sentence with the release owner rationale and follow-up closure plan.") {
+        found = 1
+      }
+    }
+    END { exit found ? 0 : 1 }
+  ' "$acceptance_file"; then
+    echo "Unverified v1 release acceptance is missing Rationale: ${acceptance_file#"$repo_root"/}" >&2
+    return 1
+  fi
+
   if grep -Eq '^- \[ \]' "$acceptance_file"; then
     echo "Unverified v1 release acceptance has unchecked scope boxes: ${acceptance_file#"$repo_root"/}" >&2
     return 1

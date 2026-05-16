@@ -15,4 +15,4 @@ Risk:
 
 ## Rationale
 
-Record why shipping is acceptable despite the missing evidence, and how the risk will be closed after release.
+Replace this sentence with the release owner rationale and follow-up closure plan.
