@@ -14,7 +14,7 @@ Do not publish generated manifests until:
 ```bash
 bash distribution/homebrew/generate-cask.sh \
   1.0.0 \
-  https://github.com/saherkh1/quickstype-net/releases/download/v1.0.0/QuickSType-canary-Setup.pkg \
+  https://github.com/saherkh1/quickstype-net/releases/download/v1.0.0/QuickSType-stable-Setup.pkg \
   <sha256>
 ```
 
@@ -30,7 +30,7 @@ brew install --cask saherk/quickstype/quickstype
 ```bash
 bash distribution/winget/generate-winget-manifests.sh \
   1.0.0 \
-  https://github.com/saherkh1/quickstype-net/releases/download/v1.0.0/QuickSType-canary-Setup.exe \
+  https://github.com/saherkh1/quickstype-net/releases/download/v1.0.0/QuickSType-stable-Setup.exe \
   <sha256>
 ```
 

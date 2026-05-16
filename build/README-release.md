@@ -144,11 +144,11 @@ The v1 helper dispatches the stable release, writes `.planning/release-evidence-
 
 ## Expected Release Assets
 
-Each platform upload should add the Velopack package output for the selected channel, including:
+Each platform upload should add the Velopack package output for the selected channel. Canary assets use the `canary` suffix, and stable assets use the `stable` suffix. Expected files include:
 
-- `releases.canary.json`
-- `assets.canary.json`
-- `RELEASES-canary`
+- `releases.<channel>.json`
+- `assets.<channel>.json`
+- `RELEASES-<channel>`
 - platform full package
 - platform installer/portable artifact
 
