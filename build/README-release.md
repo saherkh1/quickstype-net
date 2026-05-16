@@ -182,12 +182,12 @@ Use the generated evidence files to fill `tests/manual/UPDATE_CANARY_MATRIX.md`,
 Validate each evidence file before relying on it:
 
 ```bash
-bash build/validate-release-evidence.sh .planning/release-evidence-v0.99.0.md
-bash build/validate-release-evidence.sh .planning/release-evidence-v0.99.1.md
-bash build/validate-release-evidence.sh .planning/release-evidence-v1.0.0.md
+bash build/validate-release-evidence.sh .planning/release-evidence-v0.99.0.md true v0.99.0
+bash build/validate-release-evidence.sh .planning/release-evidence-v0.99.1.md true v0.99.1
+bash build/validate-release-evidence.sh .planning/release-evidence-v1.0.0.md false v1.0.0
 ```
 
-The validator requires completed manual sign-off, a 40-character release commit, a matching `release.yml` workflow run recorded as `completed/success`, and both `QuickSType-*-Setup.pkg` and `QuickSType-*-Setup.exe` assets with SHA-256 values. Pass `true` or `false` as a second argument when the gate must prove canary prerelease status or stable release status.
+The validator requires completed manual sign-off, a matching release tag when provided, a 40-character release commit, a matching `release.yml` workflow run recorded as `completed/success`, and both `QuickSType-*-Setup.pkg` and `QuickSType-*-Setup.exe` assets with SHA-256 values. Pass `true` or `false` as a second argument when the gate must prove canary prerelease status or stable release status, and pass the expected `v*` tag as the third argument when validating a specific release gate.
 
 ## Audit Release Readiness
 

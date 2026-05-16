@@ -174,6 +174,7 @@ cat > "$missing_assets_evidence" <<'EVIDENCE'
 
 | Field | Value |
 |-------|-------|
+| Tag | v1.0.0 |
 | Release commit | 0123456789abcdef0123456789abcdef01234567 |
 | Prerelease | false |
 | Matching release workflow run | https://github.com/saherkh1/quickstype-net/actions/runs/123 (completed/success) |
@@ -206,6 +207,7 @@ cat > "$good_evidence" <<'EVIDENCE'
 
 | Field | Value |
 |-------|-------|
+| Tag | v1.0.0 |
 | Release commit | 0123456789abcdef0123456789abcdef01234567 |
 | Prerelease | false |
 | Matching release workflow run | https://github.com/saherkh1/quickstype-net/actions/runs/123 (completed/success) |
@@ -228,7 +230,7 @@ cat > "$good_evidence" <<'EVIDENCE'
 - [x] Homebrew and Winget manifest generators use the exact URLs and SHA-256 values above.
 EVIDENCE
 
-bash "$repo_root/build/validate-release-evidence.sh" "$good_evidence" false >/dev/null
+bash "$repo_root/build/validate-release-evidence.sh" "$good_evidence" false v1.0.0 >/dev/null
 
 if bash "$repo_root/build/validate-release-evidence.sh" "$good_evidence" true >"$tmp_dir/prerelease-validation.log" 2>&1; then
   echo "validate-release-evidence.sh allowed stable evidence when canary prerelease evidence was required." >&2
@@ -238,6 +240,17 @@ fi
 if ! grep -Fq 'expected prerelease=true' "$tmp_dir/prerelease-validation.log"; then
   echo "validate-release-evidence.sh did not explain prerelease mismatch." >&2
   cat "$tmp_dir/prerelease-validation.log" >&2
+  exit 1
+fi
+
+if bash "$repo_root/build/validate-release-evidence.sh" "$good_evidence" false v0.99.1 >"$tmp_dir/tag-validation.log" 2>&1; then
+  echo "validate-release-evidence.sh allowed evidence for the wrong release tag." >&2
+  exit 1
+fi
+
+if ! grep -Fq 'expected tag=v0.99.1' "$tmp_dir/tag-validation.log"; then
+  echo "validate-release-evidence.sh did not explain tag mismatch." >&2
+  cat "$tmp_dir/tag-validation.log" >&2
   exit 1
 fi
 

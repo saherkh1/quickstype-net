@@ -71,8 +71,9 @@ require_clean_manual_matrix() {
 
 require_release_evidence_signoff() {
   local file="$1"
+  local expected_tag="$2"
 
-  if ! bash "$repo_root/build/validate-release-evidence.sh" "$file" true >/tmp/quickstype-v1-canary-evidence.log 2>&1; then
+  if ! bash "$repo_root/build/validate-release-evidence.sh" "$file" true "$expected_tag" >/tmp/quickstype-v1-canary-evidence.log 2>&1; then
     sed "s#${repo_root}/##g" /tmp/quickstype-v1-canary-evidence.log >&2
     return 1
   fi
@@ -113,10 +114,11 @@ require_unverified_acceptance() {
 verify_v1_release_gate() {
   local failures=0
 
-  for required_evidence in \
-    "$repo_root/.planning/release-evidence-v0.99.0.md" \
-    "$repo_root/.planning/release-evidence-v0.99.1.md"; do
-    require_release_evidence_signoff "$required_evidence" || failures=$((failures + 1))
+  for required_evidence_spec in \
+    "$repo_root/.planning/release-evidence-v0.99.0.md:v0.99.0" \
+    "$repo_root/.planning/release-evidence-v0.99.1.md:v0.99.1"; do
+    IFS=':' read -r required_evidence expected_tag <<<"$required_evidence_spec"
+    require_release_evidence_signoff "$required_evidence" "$expected_tag" || failures=$((failures + 1))
   done
 
   require_clean_manual_matrix "$repo_root/tests/manual/UPDATE_CANARY_MATRIX.md" "Canary update matrix" '^UPDATE-CANARY-[0-9]+$' || failures=$((failures + 1))
@@ -147,7 +149,7 @@ echo "Validating distribution manifests against $evidence_output"
 bash "$repo_root/distribution/validate-from-release-evidence.sh" "$version" "$evidence_output" "$repo"
 
 echo "Validating stable release evidence"
-bash "$repo_root/build/validate-release-evidence.sh" "$evidence_output" false
+bash "$repo_root/build/validate-release-evidence.sh" "$evidence_output" false "v$version"
 
 echo "v$version release evidence and distribution manifests are ready."
 echo "Next: validate Homebrew/Winget installs and rerun build/audit-release-readiness.sh $repo"

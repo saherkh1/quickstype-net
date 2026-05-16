@@ -67,8 +67,9 @@ check_release() {
 check_release_evidence() {
   local evidence="$1"
   local expected_prerelease="$2"
+  local expected_tag="$3"
 
-  if bash "$(dirname "$0")/validate-release-evidence.sh" "$evidence" "$expected_prerelease" >/tmp/quickstype-release-evidence-validation.log 2>&1; then
+  if bash "$(dirname "$0")/validate-release-evidence.sh" "$evidence" "$expected_prerelease" "$expected_tag" >/tmp/quickstype-release-evidence-validation.log 2>&1; then
     pass "Release evidence exists with completed manual sign-off and workflow proof: $evidence"
   else
     fail "$(cat /tmp/quickstype-release-evidence-validation.log)"
@@ -194,11 +195,11 @@ else
 fi
 
 for evidence_spec in \
-  .planning/release-evidence-v0.99.0.md:true \
-  .planning/release-evidence-v0.99.1.md:true \
-  .planning/release-evidence-v1.0.0.md:false; do
-  IFS=':' read -r evidence expected_prerelease <<<"$evidence_spec"
-  check_release_evidence "$evidence" "$expected_prerelease"
+  .planning/release-evidence-v0.99.0.md:true:v0.99.0 \
+  .planning/release-evidence-v0.99.1.md:true:v0.99.1 \
+  .planning/release-evidence-v1.0.0.md:false:v1.0.0; do
+  IFS=':' read -r evidence expected_prerelease expected_tag <<<"$evidence_spec"
+  check_release_evidence "$evidence" "$expected_prerelease" "$expected_tag"
 done
 
 if [[ -f distribution/homebrew/quickstype.rb ]]; then

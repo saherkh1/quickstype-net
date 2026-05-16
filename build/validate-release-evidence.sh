@@ -3,14 +3,20 @@ set -euo pipefail
 
 evidence="${1:-}"
 expected_prerelease="${2:-}"
+expected_tag="${3:-}"
 
 if [[ -z "$evidence" ]]; then
-  echo "Usage: $0 <release-evidence.md> [expected-prerelease:true|false]" >&2
+  echo "Usage: $0 <release-evidence.md> [expected-prerelease:true|false] [expected-tag]" >&2
   exit 64
 fi
 
 if [[ -n "$expected_prerelease" && "$expected_prerelease" != "true" && "$expected_prerelease" != "false" ]]; then
   echo "Expected prerelease value must be true or false: $expected_prerelease" >&2
+  exit 64
+fi
+
+if [[ -n "$expected_tag" && ! "$expected_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+  echo "Expected tag must be a v-prefixed SemVer tag: $expected_tag" >&2
   exit 64
 fi
 
@@ -41,6 +47,11 @@ fi
 
 if [[ -n "$expected_prerelease" ]] && ! grep -Fxq "| Prerelease | $expected_prerelease |" "$evidence"; then
   echo "Release evidence does not match expected prerelease=$expected_prerelease: $evidence" >&2
+  exit 1
+fi
+
+if [[ -n "$expected_tag" ]] && ! grep -Fxq "| Tag | $expected_tag |" "$evidence"; then
+  echo "Release evidence does not match expected tag=$expected_tag: $evidence" >&2
   exit 1
 fi
 
