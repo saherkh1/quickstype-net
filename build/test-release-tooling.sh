@@ -75,6 +75,7 @@ for matrix in \
   tests/manual/TELEMETRY_MATRIX.md; do
   require_reference "$repo_root/build/audit-release-readiness.sh" "$matrix"
   require_reference "$repo_root/build/run-v1-release.sh" "$matrix"
+  require_reference "$repo_root/build/collect-release-evidence.sh" "$matrix"
   test -s "$repo_root/$matrix"
 done
 

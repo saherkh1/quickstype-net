@@ -125,6 +125,8 @@ emit "- [ ] macOS package signing identity matches expected Developer ID Applica
 emit "- [ ] macOS notarization and stapler validation passed in the release workflow."
 emit "- [ ] Windows Azure Artifact Signing completed for publish directory and installer."
 emit "- [ ] \`tests/manual/UPDATE_CANARY_MATRIX.md\` rows updated with tester/date and PASS/DEFERRED status."
+emit "- [ ] \`tests/manual/INJECTION_MATRIX.md\` rows updated with tester/date and PASS/DEFERRED status."
+emit "- [ ] \`tests/manual/TELEMETRY_MATRIX.md\` rows updated with tester/date and PASS/DEFERRED status."
 emit "- [ ] Homebrew and Winget manifest generators use the exact URLs and SHA-256 values above."
 
 if [[ -n "$output" ]]; then
