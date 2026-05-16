@@ -190,6 +190,6 @@ if [[ "$failures" -eq 0 ]]; then
   echo "Release readiness audit passed."
 else
   echo "Release readiness audit failed with $failures blocker(s)." >&2
-  warn "Do not mark Phase 6, Phase 7, or the persistent goal complete until this audit passes or each failure is explicitly accepted with owner/date/risk."
+  warn "Do not mark Phase 6, Phase 7, or the persistent goal complete until this audit passes or the explicit unverified-v1 release acceptance path records owner/date/risk, checked scopes, and written rationale."
   exit 1
 fi

@@ -110,6 +110,9 @@ require_reference "$repo_root/build/run-canary-release.sh" "dispatch_started_at"
 require_reference "$repo_root/build/run-canary-release.sh" "createdAt >="
 require_reference "$repo_root/build/run-canary-pair.sh" "run_id_file"
 require_reference "$repo_root/build/run-stable-release.sh" "run_id_file"
+require_reference "$repo_root/build/audit-release-readiness.sh" "checked scopes, and written rationale"
+require_reference "$repo_root/build/run-v1-release.sh" "checked scopes, and written rationale"
+require_reference "$repo_root/build/README-release.md" "check every accepted scope"
 
 if command -v shellcheck >/dev/null 2>&1; then
   shellcheck \

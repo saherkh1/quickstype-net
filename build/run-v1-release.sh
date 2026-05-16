@@ -53,7 +53,7 @@ require_unverified_acceptance() {
 
   if [[ ! -s "$acceptance_file" ]]; then
     echo "Unverified v1 release acceptance is missing: ${acceptance_file#"$repo_root"/}" >&2
-    echo "Copy build/unverified-v1-release-acceptance.template.md to that path, fill owner/date/risk, and check accepted scopes." >&2
+    echo "Copy build/unverified-v1-release-acceptance.template.md to that path, fill owner/date/risk, check every accepted scope, and write the rationale." >&2
     return 1
   fi
 
@@ -124,7 +124,7 @@ verify_v1_release_gate() {
 
   if [[ "$failures" -ne 0 ]]; then
     echo "Stable v$version release gate failed." >&2
-    echo "Complete Phase 5/6 evidence first, or set QUICKSTYPE_ACCEPT_UNVERIFIED_V1=1 only after owner/date/risk acceptance is recorded." >&2
+    echo "Complete Phase 5/6 evidence first, or set QUICKSTYPE_ACCEPT_UNVERIFIED_V1=1 only after the acceptance file records owner/date/risk, checked scopes, and written rationale." >&2
     return 1
   fi
 }
