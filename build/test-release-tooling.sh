@@ -111,4 +111,17 @@ bash -n \
   "$repo_root/distribution/test-generate-from-release-evidence.sh" \
   "$repo_root/distribution/winget/generate-winget-manifests.sh"
 
+if QUICKSTYPE_ACCEPT_UNVERIFIED_V1=1 \
+  QUICKSTYPE_UNVERIFIED_V1_ACCEPTANCE_FILE="$tmp_dir/missing-acceptance.md" \
+  bash "$repo_root/build/run-v1-release.sh" 1.0.0 owner/repo "$tmp_dir/evidence.md" >"$tmp_dir/unverified-v1.log" 2>&1; then
+  echo "run-v1-release.sh allowed unverified release without acceptance file." >&2
+  exit 1
+fi
+
+if ! grep -Fq "Unverified v1 release acceptance is missing" "$tmp_dir/unverified-v1.log"; then
+  echo "run-v1-release.sh did not explain missing unverified acceptance." >&2
+  cat "$tmp_dir/unverified-v1.log" >&2
+  exit 1
+fi
+
 echo "Release tooling consistency test passed."

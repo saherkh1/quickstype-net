@@ -153,7 +153,7 @@ bash build/run-v1-release.sh 1.0.0 saherkh1/quickstype-net
 
 The v1 helper requires `.planning/release-evidence-v0.99.0.md`, `.planning/release-evidence-v0.99.1.md`, completed manual sign-off checkboxes in those canary evidence files, an accepted `tests/manual/UPDATE_CANARY_MATRIX.md`, an accepted `tests/manual/INJECTION_MATRIX.md`, and an accepted `tests/manual/TELEMETRY_MATRIX.md` before dispatching the stable release. It then writes `.planning/release-evidence-v1.0.0.md` and calls `distribution/generate-from-release-evidence.sh` to create `distribution/homebrew/quickstype.rb` and Winget manifest YAML.
 
-If the owner explicitly accepts unresolved manual evidence as a release risk, record owner/date/risk in the relevant matrix or verification file and set `QUICKSTYPE_ACCEPT_UNVERIFIED_V1=1` for this command only.
+If the owner explicitly accepts unresolved manual evidence as a release risk, copy `build/unverified-v1-release-acceptance.template.md` to `.planning/unverified-v1-release-acceptance.md`, fill owner/date/risk, check each accepted scope, and set `QUICKSTYPE_ACCEPT_UNVERIFIED_V1=1` for this command only. To use a different acceptance path, set `QUICKSTYPE_UNVERIFIED_V1_ACCEPTANCE_FILE=/path/to/acceptance.md`.
 
 ## Expected Release Assets
 

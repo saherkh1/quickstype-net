@@ -83,6 +83,38 @@ require_release_evidence_signoff() {
   fi
 }
 
+require_unverified_acceptance() {
+  local acceptance_file="${QUICKSTYPE_UNVERIFIED_V1_ACCEPTANCE_FILE:-$repo_root/.planning/unverified-v1-release-acceptance.md}"
+
+  if [[ ! -s "$acceptance_file" ]]; then
+    echo "Unverified v1 release acceptance is missing: ${acceptance_file#"$repo_root"/}" >&2
+    echo "Copy build/unverified-v1-release-acceptance.template.md to that path, fill owner/date/risk, and check accepted scopes." >&2
+    return 1
+  fi
+
+  if ! grep -Eq '^Owner:[[:space:]]*[^[:space:]]' "$acceptance_file"; then
+    echo "Unverified v1 release acceptance is missing Owner: ${acceptance_file#"$repo_root"/}" >&2
+    return 1
+  fi
+
+  if ! grep -Eq '^Date:[[:space:]]*[0-9]{4}-[0-9]{2}-[0-9]{2}' "$acceptance_file"; then
+    echo "Unverified v1 release acceptance is missing ISO Date: ${acceptance_file#"$repo_root"/}" >&2
+    return 1
+  fi
+
+  if ! grep -Eq '^Risk:[[:space:]]*[^[:space:]]' "$acceptance_file"; then
+    echo "Unverified v1 release acceptance is missing Risk: ${acceptance_file#"$repo_root"/}" >&2
+    return 1
+  fi
+
+  if grep -Eq '^- \[ \]' "$acceptance_file"; then
+    echo "Unverified v1 release acceptance has unchecked scope boxes: ${acceptance_file#"$repo_root"/}" >&2
+    return 1
+  fi
+
+  echo "Using unverified v1 release acceptance: ${acceptance_file#"$repo_root"/}"
+}
+
 verify_v1_release_gate() {
   local failures=0
 
@@ -104,6 +136,7 @@ verify_v1_release_gate() {
 }
 
 if [[ "${QUICKSTYPE_ACCEPT_UNVERIFIED_V1:-}" == "1" ]]; then
+  require_unverified_acceptance
   echo "WARNING: bypassing v1 manual evidence gate because QUICKSTYPE_ACCEPT_UNVERIFIED_V1=1"
 else
   verify_v1_release_gate
