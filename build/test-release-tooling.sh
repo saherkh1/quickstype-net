@@ -59,6 +59,17 @@ compare_secret_set ".github/workflows/release.yml" "$workflow"
 compare_secret_set "build/check-release-prereqs.sh" "$prereqs"
 compare_secret_set "build/release-secrets.env.example" "$template"
 
+if command -v shellcheck >/dev/null 2>&1; then
+  shellcheck \
+    "$repo_root"/build/*.sh \
+    "$repo_root"/distribution/*.sh \
+    "$repo_root"/distribution/homebrew/*.sh \
+    "$repo_root"/distribution/winget/*.sh
+else
+  echo "shellcheck is required for release tooling validation." >&2
+  exit 1
+fi
+
 bash -n \
   "$repo_root/build/audit-release-readiness.sh" \
   "$repo_root/build/check-release-prereqs.sh" \

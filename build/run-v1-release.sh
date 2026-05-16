@@ -73,12 +73,12 @@ require_release_evidence_signoff() {
   local file="$1"
 
   if [[ ! -s "$file" ]]; then
-    echo "Required canary evidence is missing: ${file#$repo_root/}" >&2
+    echo "Required canary evidence is missing: ${file#"$repo_root"/}" >&2
     return 1
   fi
 
   if grep -Eq '^- \[ \]' "$file"; then
-    echo "Required canary evidence has incomplete manual sign-off: ${file#$repo_root/}" >&2
+    echo "Required canary evidence has incomplete manual sign-off: ${file#"$repo_root"/}" >&2
     return 1
   fi
 }
