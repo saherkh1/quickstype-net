@@ -31,12 +31,12 @@ function fail(message) {
 }
 
 function is_date(value) {
-  return value ~ /[0-9]{4}-[0-9]{2}-[0-9]{2}/
+  return value ~ /[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/
 }
 
 function has_evidence(value) {
   value = trim(value)
-  return value != "" && value != "-" && value !~ /Requires / && value !~ /Pending / && value !~ /not tested/i
+  return value != "" && value != "-" && value !~ /Requires / && value !~ /Pending / && tolower(value) !~ /not tested/
 }
 
 /^\|/ {
