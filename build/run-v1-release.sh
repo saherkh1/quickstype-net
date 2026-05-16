@@ -148,5 +148,8 @@ bash "$script_dir/run-stable-release.sh" "$version" "$repo" "$evidence_output"
 echo "Generating distribution manifests from $evidence_output"
 bash "$repo_root/distribution/generate-from-release-evidence.sh" "$version" "$evidence_output" "$repo"
 
+echo "Validating distribution manifests against $evidence_output"
+bash "$repo_root/distribution/validate-from-release-evidence.sh" "$version" "$evidence_output" "$repo"
+
 echo "v$version release evidence and distribution manifests are ready."
 echo "Next: validate Homebrew/Winget installs and rerun build/audit-release-readiness.sh $repo"

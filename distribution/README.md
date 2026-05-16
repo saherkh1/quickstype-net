@@ -53,10 +53,19 @@ bash distribution/generate-from-release-evidence.sh \
 
 The helper expects the evidence file to contain a `QuickSType-*-Setup.pkg` asset and a `QuickSType-*-Setup.exe` asset with SHA-256 values.
 
+Validate generated manifests against the same evidence file before publishing:
+
+```bash
+bash distribution/validate-from-release-evidence.sh \
+  1.0.0 \
+  .planning/release-evidence-v1.0.0.md \
+  saherkh1/quickstype-net
+```
+
 The one-command stable release path wraps release dispatch, evidence collection, and manifest generation:
 
 ```bash
 bash build/run-v1-release.sh 1.0.0 saherkh1/quickstype-net
 ```
 
-That command is gated on completed canary evidence and accepted Phase 5/6 manual matrices before it dispatches the stable workflow.
+That command is gated on completed canary evidence and accepted Phase 5/6 manual matrices before it dispatches the stable workflow. After stable evidence collection, it generates distribution manifests and validates them against the collected release evidence.
