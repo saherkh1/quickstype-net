@@ -59,6 +59,32 @@ compare_secret_set ".github/workflows/release.yml" "$workflow"
 compare_secret_set "build/check-release-prereqs.sh" "$prereqs"
 compare_secret_set "build/release-secrets.env.example" "$template"
 
+require_reference() {
+  local file="$1"
+  local expected="$2"
+
+  if ! grep -Fq "$expected" "$file"; then
+    echo "${file#"$repo_root"/} is missing required release-gate reference: $expected" >&2
+    exit 1
+  fi
+}
+
+for matrix in \
+  tests/manual/UPDATE_CANARY_MATRIX.md \
+  tests/manual/INJECTION_MATRIX.md \
+  tests/manual/TELEMETRY_MATRIX.md; do
+  require_reference "$repo_root/build/audit-release-readiness.sh" "$matrix"
+  require_reference "$repo_root/build/run-v1-release.sh" "$matrix"
+  test -s "$repo_root/$matrix"
+done
+
+for evidence in \
+  .planning/release-evidence-v0.99.0.md \
+  .planning/release-evidence-v0.99.1.md \
+  .planning/release-evidence-v1.0.0.md; do
+  require_reference "$repo_root/build/audit-release-readiness.sh" "$evidence"
+done
+
 if command -v shellcheck >/dev/null 2>&1; then
   shellcheck \
     "$repo_root"/build/*.sh \
