@@ -31,6 +31,10 @@ jobs:
       - name: Verify release tooling consistency
         run: bash build/test-release-tooling.sh
 
+      - name: Verify PowerShell helper syntax
+        shell: pwsh
+        run: ./build/test-powershell-syntax.ps1
+
       - name: Verify distribution manifest generator
         run: bash distribution/test-generate-from-release-evidence.sh
 
