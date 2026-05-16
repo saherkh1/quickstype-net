@@ -58,3 +58,5 @@ The one-command stable release path wraps release dispatch, evidence collection,
 ```bash
 bash build/run-v1-release.sh 1.0.0 saherkh1/quickstype-net
 ```
+
+That command is gated on completed canary evidence and accepted Phase 5/6 manual matrices before it dispatches the stable workflow.

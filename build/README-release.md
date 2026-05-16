@@ -140,7 +140,9 @@ To run the stable release and immediately generate Homebrew/Winget manifests fro
 bash build/run-v1-release.sh 1.0.0 saherkh1/quickstype-net
 ```
 
-The v1 helper dispatches the stable release, writes `.planning/release-evidence-v1.0.0.md`, then calls `distribution/generate-from-release-evidence.sh` to create `distribution/homebrew/quickstype.rb` and Winget manifest YAML.
+The v1 helper requires `.planning/release-evidence-v0.99.0.md`, `.planning/release-evidence-v0.99.1.md`, an accepted `tests/manual/UPDATE_CANARY_MATRIX.md`, and an accepted `tests/manual/INJECTION_MATRIX.md` before dispatching the stable release. It then writes `.planning/release-evidence-v1.0.0.md` and calls `distribution/generate-from-release-evidence.sh` to create `distribution/homebrew/quickstype.rb` and Winget manifest YAML.
+
+If the owner explicitly accepts unresolved manual evidence as a release risk, record owner/date/risk in the relevant matrix or verification file and set `QUICKSTYPE_ACCEPT_UNVERIFIED_V1=1` for this command only.
 
 ## Expected Release Assets
 
