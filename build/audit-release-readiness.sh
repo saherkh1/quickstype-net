@@ -221,6 +221,17 @@ else
   fail "Winget manifest directory is missing: distribution/winget/manifests"
 fi
 
+if [[ -s .planning/release-evidence-v1.0.0.md \
+  && -f distribution/homebrew/quickstype.rb \
+  && -n "$(find distribution/winget/manifests -type f -name '*.yaml' -print -quit 2>/dev/null)" ]]; then
+  if bash distribution/validate-from-release-evidence.sh 1.0.0 .planning/release-evidence-v1.0.0.md "$repo" >/tmp/quickstype-distribution-validation.log 2>&1; then
+    pass "Distribution manifests match v1.0.0 release evidence"
+  else
+    fail "Distribution manifests do not match v1.0.0 release evidence"
+    sed 's/^/  /' /tmp/quickstype-distribution-validation.log
+  fi
+fi
+
 if gh repo view "$repo" --json visibility -q .visibility | grep -Fxq PUBLIC; then
   pass "GitHub repository is public"
 else

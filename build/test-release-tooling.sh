@@ -120,6 +120,7 @@ bash -n \
   "$repo_root/distribution/generate-from-release-evidence.sh" \
   "$repo_root/distribution/homebrew/generate-cask.sh" \
   "$repo_root/distribution/test-generate-from-release-evidence.sh" \
+  "$repo_root/distribution/validate-from-release-evidence.sh" \
   "$repo_root/distribution/winget/generate-winget-manifests.sh"
 
 if QUICKSTYPE_ACCEPT_UNVERIFIED_V1=1 \
