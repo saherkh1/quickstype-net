@@ -133,6 +133,16 @@ bash build/collect-release-evidence.sh 0.99.1 saherkh1/quickstype-net .planning/
 
 Use the generated evidence files to fill `tests/manual/UPDATE_CANARY_MATRIX.md` and to pass exact uploaded asset URLs/checksums into the Homebrew and Winget manifest generators.
 
+## Audit Release Readiness
+
+Before closing Phase 6, Phase 7, or the v1 release goal, run the release-readiness audit:
+
+```bash
+bash build/audit-release-readiness.sh saherkh1/quickstype-net
+```
+
+The audit checks the clean git state, remote branch sync, release workflow/secret prerequisites, expected canary and v1 releases, manual matrix status, release evidence files, generated distribution manifests, and public repository visibility. It fails closed when any required evidence is missing.
+
 ## Current Caveats
 
 - The workflow has not been run against real Apple/Azure credentials yet.
