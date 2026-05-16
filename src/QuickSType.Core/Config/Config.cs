@@ -46,6 +46,9 @@ public sealed record AppConfig
     [JsonPropertyName("preferred_model")]
     public string? PreferredModel { get; init; } = null;
 
+    [JsonPropertyName("enable_vibrancy")]
+    public bool? EnableVibrancy { get; init; } = null;
+
     public AppConfig WithLanguage(string lang)
     {
         var normalised = (lang ?? string.Empty).Trim().ToLowerInvariant();
