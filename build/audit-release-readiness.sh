@@ -67,17 +67,11 @@ check_release() {
 check_release_evidence() {
   local evidence="$1"
 
-  if [[ ! -s "$evidence" ]]; then
-    fail "Release evidence is missing: $evidence"
-    return
+  if bash "$(dirname "$0")/validate-release-evidence.sh" "$evidence" >/tmp/quickstype-release-evidence-validation.log 2>&1; then
+    pass "Release evidence exists with completed manual sign-off and workflow proof: $evidence"
+  else
+    fail "$(cat /tmp/quickstype-release-evidence-validation.log)"
   fi
-
-  if grep -Eq '^- \[ \]' "$evidence"; then
-    fail "Release evidence has incomplete manual sign-off: $evidence"
-    return
-  fi
-
-  pass "Release evidence exists with completed manual sign-off: $evidence"
 }
 
 check_head_workflow_success() {

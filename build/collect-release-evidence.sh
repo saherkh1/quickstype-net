@@ -100,9 +100,14 @@ if [[ -n "$release_sha" ]]; then
 fi
 
 if [[ -n "${run_url:-}" ]]; then
+  if [[ "$run_status" != "completed" || "$run_conclusion" != "success" ]]; then
+    echo "Matching release workflow for $tag is not successful: $run_url ($run_status/$run_conclusion)" >&2
+    exit 1
+  fi
   emit "| Matching release workflow run | $run_url ($run_status/$run_conclusion) |"
 else
-  emit "| Matching release workflow run | not found for release commit |"
+  echo "Could not find a matching release workflow run for $tag at release commit ${release_sha:-unknown}." >&2
+  exit 1
 fi
 
 emit ""

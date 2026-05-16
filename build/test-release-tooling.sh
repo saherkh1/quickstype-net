@@ -117,6 +117,7 @@ bash -n \
   "$repo_root/build/run-canary-release.sh" \
   "$repo_root/build/run-stable-release.sh" \
   "$repo_root/build/run-v1-release.sh" \
+  "$repo_root/build/validate-release-evidence.sh" \
   "$repo_root/distribution/generate-from-release-evidence.sh" \
   "$repo_root/distribution/homebrew/generate-cask.sh" \
   "$repo_root/distribution/test-generate-from-release-evidence.sh" \
@@ -135,5 +136,58 @@ if ! grep -Fq "Unverified v1 release acceptance is missing" "$tmp_dir/unverified
   cat "$tmp_dir/unverified-v1.log" >&2
   exit 1
 fi
+
+bad_evidence="$tmp_dir/bad-release-evidence-v1.0.0.md"
+cat > "$bad_evidence" <<'EVIDENCE'
+# QuickSType Release Evidence - v1.0.0
+
+| Field | Value |
+|-------|-------|
+| Release commit | unknown |
+| Matching release workflow run | not found for release commit |
+
+## Manual Sign-Off
+
+- [x] macOS package signing identity matches expected Developer ID Application/Installer identities.
+- [x] macOS notarization and stapler validation passed in the release workflow.
+- [x] Windows Azure Artifact Signing completed for publish directory and installer.
+- [x] `tests/manual/UPDATE_CANARY_MATRIX.md` rows updated with tester/date and PASS/DEFERRED status.
+- [x] `tests/manual/INJECTION_MATRIX.md` rows updated with tester/date and PASS/DEFERRED status.
+- [x] `tests/manual/TELEMETRY_MATRIX.md` rows updated with tester/date and PASS/DEFERRED status.
+- [x] Homebrew and Winget manifest generators use the exact URLs and SHA-256 values above.
+EVIDENCE
+
+if bash "$repo_root/build/validate-release-evidence.sh" "$bad_evidence" >"$tmp_dir/bad-evidence-validation.log" 2>&1; then
+  echo "validate-release-evidence.sh allowed release evidence without a release commit/workflow." >&2
+  exit 1
+fi
+
+if ! grep -Eq 'release commit|successful release workflow run' "$tmp_dir/bad-evidence-validation.log"; then
+  echo "validate-release-evidence.sh did not explain invalid release evidence." >&2
+  cat "$tmp_dir/bad-evidence-validation.log" >&2
+  exit 1
+fi
+
+good_evidence="$tmp_dir/good-release-evidence-v1.0.0.md"
+cat > "$good_evidence" <<'EVIDENCE'
+# QuickSType Release Evidence - v1.0.0
+
+| Field | Value |
+|-------|-------|
+| Release commit | 0123456789abcdef0123456789abcdef01234567 |
+| Matching release workflow run | https://github.com/saherkh1/quickstype-net/actions/runs/123 (completed/success) |
+
+## Manual Sign-Off
+
+- [x] macOS package signing identity matches expected Developer ID Application/Installer identities.
+- [x] macOS notarization and stapler validation passed in the release workflow.
+- [x] Windows Azure Artifact Signing completed for publish directory and installer.
+- [x] `tests/manual/UPDATE_CANARY_MATRIX.md` rows updated with tester/date and PASS/DEFERRED status.
+- [x] `tests/manual/INJECTION_MATRIX.md` rows updated with tester/date and PASS/DEFERRED status.
+- [x] `tests/manual/TELEMETRY_MATRIX.md` rows updated with tester/date and PASS/DEFERRED status.
+- [x] Homebrew and Winget manifest generators use the exact URLs and SHA-256 values above.
+EVIDENCE
+
+bash "$repo_root/build/validate-release-evidence.sh" "$good_evidence" >/dev/null
 
 echo "Release tooling consistency test passed."

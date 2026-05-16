@@ -179,6 +179,16 @@ bash build/collect-release-evidence.sh 1.0.0 saherkh1/quickstype-net .planning/r
 
 Use the generated evidence files to fill `tests/manual/UPDATE_CANARY_MATRIX.md`, `tests/manual/TELEMETRY_MATRIX.md`, and to pass exact uploaded asset URLs/checksums into the Homebrew and Winget manifest generators. The telemetry matrix uses the signed app's hidden `--telemetry-smoke-test` command with a release-operator Sentry DSN to prove opt-in capture and scrubbed payloads. Before closing a release gate, check every Manual Sign-Off item in the relevant evidence file.
 
+Validate each evidence file before relying on it:
+
+```bash
+bash build/validate-release-evidence.sh .planning/release-evidence-v0.99.0.md
+bash build/validate-release-evidence.sh .planning/release-evidence-v0.99.1.md
+bash build/validate-release-evidence.sh .planning/release-evidence-v1.0.0.md
+```
+
+The validator requires completed manual sign-off, a 40-character release commit, and a matching `release.yml` workflow run recorded as `completed/success`.
+
 ## Audit Release Readiness
 
 Before closing Phase 6, Phase 7, or the v1 release goal, run the release-readiness audit:
@@ -187,7 +197,7 @@ Before closing Phase 6, Phase 7, or the v1 release goal, run the release-readine
 bash build/audit-release-readiness.sh saherkh1/quickstype-net
 ```
 
-The audit checks the clean git state, remote branch sync, release workflow/secret prerequisites, expected canary and v1 releases, manual matrix status for HUD, canary updates, and telemetry, release evidence files with completed manual sign-offs, generated distribution manifests, and public repository visibility. It fails closed when any required evidence is missing or unsigned-off.
+The audit checks the clean git state, remote branch sync, release workflow/secret prerequisites, expected canary and v1 releases, manual matrix status for HUD, canary updates, and telemetry, release evidence files with completed manual sign-offs and successful release workflow proof, generated distribution manifests, and public repository visibility. It fails closed when any required evidence is missing, unsigned-off, or not tied to a successful release workflow run.
 
 ## Current Caveats
 
