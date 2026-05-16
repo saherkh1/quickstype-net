@@ -2,9 +2,15 @@
 set -euo pipefail
 
 evidence="${1:-}"
+expected_prerelease="${2:-}"
 
 if [[ -z "$evidence" ]]; then
-  echo "Usage: $0 <release-evidence.md>" >&2
+  echo "Usage: $0 <release-evidence.md> [expected-prerelease:true|false]" >&2
+  exit 64
+fi
+
+if [[ -n "$expected_prerelease" && "$expected_prerelease" != "true" && "$expected_prerelease" != "false" ]]; then
+  echo "Expected prerelease value must be true or false: $expected_prerelease" >&2
   exit 64
 fi
 
@@ -30,6 +36,11 @@ fi
 
 if ! grep -Eq '^\| Matching release workflow run \| .+ \(completed/success\) \|$' "$evidence"; then
   echo "Release evidence does not identify a successful release workflow run: $evidence" >&2
+  exit 1
+fi
+
+if [[ -n "$expected_prerelease" ]] && ! grep -Fxq "| Prerelease | $expected_prerelease |" "$evidence"; then
+  echo "Release evidence does not match expected prerelease=$expected_prerelease: $evidence" >&2
   exit 1
 fi
 

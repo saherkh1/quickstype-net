@@ -72,13 +72,8 @@ require_clean_manual_matrix() {
 require_release_evidence_signoff() {
   local file="$1"
 
-  if [[ ! -s "$file" ]]; then
-    echo "Required canary evidence is missing: ${file#"$repo_root"/}" >&2
-    return 1
-  fi
-
-  if grep -Eq '^- \[ \]' "$file"; then
-    echo "Required canary evidence has incomplete manual sign-off: ${file#"$repo_root"/}" >&2
+  if ! bash "$repo_root/build/validate-release-evidence.sh" "$file" true >/tmp/quickstype-v1-canary-evidence.log 2>&1; then
+    sed "s#${repo_root}/##g" /tmp/quickstype-v1-canary-evidence.log >&2
     return 1
   fi
 }
@@ -150,6 +145,9 @@ bash "$repo_root/distribution/generate-from-release-evidence.sh" "$version" "$ev
 
 echo "Validating distribution manifests against $evidence_output"
 bash "$repo_root/distribution/validate-from-release-evidence.sh" "$version" "$evidence_output" "$repo"
+
+echo "Validating stable release evidence"
+bash "$repo_root/build/validate-release-evidence.sh" "$evidence_output" false
 
 echo "v$version release evidence and distribution manifests are ready."
 echo "Next: validate Homebrew/Winget installs and rerun build/audit-release-readiness.sh $repo"

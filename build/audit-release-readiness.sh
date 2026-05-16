@@ -66,8 +66,9 @@ check_release() {
 
 check_release_evidence() {
   local evidence="$1"
+  local expected_prerelease="$2"
 
-  if bash "$(dirname "$0")/validate-release-evidence.sh" "$evidence" >/tmp/quickstype-release-evidence-validation.log 2>&1; then
+  if bash "$(dirname "$0")/validate-release-evidence.sh" "$evidence" "$expected_prerelease" >/tmp/quickstype-release-evidence-validation.log 2>&1; then
     pass "Release evidence exists with completed manual sign-off and workflow proof: $evidence"
   else
     fail "$(cat /tmp/quickstype-release-evidence-validation.log)"
@@ -192,11 +193,12 @@ else
   fail "Telemetry matrix is missing: $telemetry_matrix"
 fi
 
-for evidence in \
-  .planning/release-evidence-v0.99.0.md \
-  .planning/release-evidence-v0.99.1.md \
-  .planning/release-evidence-v1.0.0.md; do
-  check_release_evidence "$evidence"
+for evidence_spec in \
+  .planning/release-evidence-v0.99.0.md:true \
+  .planning/release-evidence-v0.99.1.md:true \
+  .planning/release-evidence-v1.0.0.md:false; do
+  IFS=':' read -r evidence expected_prerelease <<<"$evidence_spec"
+  check_release_evidence "$evidence" "$expected_prerelease"
 done
 
 if [[ -f distribution/homebrew/quickstype.rb ]]; then

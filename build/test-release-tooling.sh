@@ -175,6 +175,7 @@ cat > "$missing_assets_evidence" <<'EVIDENCE'
 | Field | Value |
 |-------|-------|
 | Release commit | 0123456789abcdef0123456789abcdef01234567 |
+| Prerelease | false |
 | Matching release workflow run | https://github.com/saherkh1/quickstype-net/actions/runs/123 (completed/success) |
 
 ## Manual Sign-Off
@@ -206,6 +207,7 @@ cat > "$good_evidence" <<'EVIDENCE'
 | Field | Value |
 |-------|-------|
 | Release commit | 0123456789abcdef0123456789abcdef01234567 |
+| Prerelease | false |
 | Matching release workflow run | https://github.com/saherkh1/quickstype-net/actions/runs/123 (completed/success) |
 
 ## Asset Checksums
@@ -226,6 +228,17 @@ cat > "$good_evidence" <<'EVIDENCE'
 - [x] Homebrew and Winget manifest generators use the exact URLs and SHA-256 values above.
 EVIDENCE
 
-bash "$repo_root/build/validate-release-evidence.sh" "$good_evidence" >/dev/null
+bash "$repo_root/build/validate-release-evidence.sh" "$good_evidence" false >/dev/null
+
+if bash "$repo_root/build/validate-release-evidence.sh" "$good_evidence" true >"$tmp_dir/prerelease-validation.log" 2>&1; then
+  echo "validate-release-evidence.sh allowed stable evidence when canary prerelease evidence was required." >&2
+  exit 1
+fi
+
+if ! grep -Fq 'expected prerelease=true' "$tmp_dir/prerelease-validation.log"; then
+  echo "validate-release-evidence.sh did not explain prerelease mismatch." >&2
+  cat "$tmp_dir/prerelease-validation.log" >&2
+  exit 1
+fi
 
 echo "Release tooling consistency test passed."

@@ -187,7 +187,7 @@ bash build/validate-release-evidence.sh .planning/release-evidence-v0.99.1.md
 bash build/validate-release-evidence.sh .planning/release-evidence-v1.0.0.md
 ```
 
-The validator requires completed manual sign-off, a 40-character release commit, a matching `release.yml` workflow run recorded as `completed/success`, and both `QuickSType-*-Setup.pkg` and `QuickSType-*-Setup.exe` assets with SHA-256 values.
+The validator requires completed manual sign-off, a 40-character release commit, a matching `release.yml` workflow run recorded as `completed/success`, and both `QuickSType-*-Setup.pkg` and `QuickSType-*-Setup.exe` assets with SHA-256 values. Pass `true` or `false` as a second argument when the gate must prove canary prerelease status or stable release status.
 
 ## Audit Release Readiness
 
