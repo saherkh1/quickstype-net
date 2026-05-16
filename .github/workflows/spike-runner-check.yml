@@ -5,7 +5,7 @@ jobs:
   runner-availability:
     strategy:
       matrix:
-        runner: [macos-14, macos-13, windows-2022]
+        runner: [macos-14, macos-15, windows-2022]
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v6

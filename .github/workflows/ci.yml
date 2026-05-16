@@ -111,7 +111,7 @@ jobs:
         run: |
           EXPECTED='${{ steps.manifest.outputs.tiny_sha }}'
           if [[ '${{ runner.os }}' == 'Windows' ]]; then
-            ACTUAL=$(certutil -hashfile ~/quickstype-models/ggml-tiny.bin SHA256 | sed -n '2p' | tr -d ' \r' | tr 'A-Z' 'a-z')
+            ACTUAL=$(certutil -hashfile ~/quickstype-models/ggml-tiny.bin SHA256 | sed -n '2p' | tr -d ' \r' | tr '[:upper:]' '[:lower:]')
           else
             ACTUAL=$(shasum -a 256 ~/quickstype-models/ggml-tiny.bin | awk '{print $1}')
           fi
@@ -161,7 +161,7 @@ jobs:
           # Defense-in-depth: shell-side substring grep mirrors the harness's own assertion.
           # Reads must_contain_lowercase[0] from the contract.
           TOKEN=$(python3 -c 'import json; print(json.load(open("tests/fixtures/smoke.expected.json"))["must_contain_lowercase"][0])')
-          if ! echo "$OUTPUT" | tr 'A-Z' 'a-z' | grep -qF "$TOKEN"; then
+          if ! echo "$OUTPUT" | tr '[:upper:]' '[:lower:]' | grep -qF "$TOKEN"; then
             echo "smoke: transcript does not contain '$TOKEN'" >&2
             exit 30
           fi
