@@ -134,6 +134,14 @@ bash build/run-stable-release.sh 1.0.0 saherkh1/quickstype-net
 
 The stable helper uses the same release preflight checks, dispatches `release.yml` with `channel=stable`, watches the workflow, and writes `.planning/release-evidence-v1.0.0.md` from the uploaded GitHub Release assets.
 
+To run the stable release and immediately generate Homebrew/Winget manifests from the collected evidence:
+
+```bash
+bash build/run-v1-release.sh 1.0.0 saherkh1/quickstype-net
+```
+
+The v1 helper dispatches the stable release, writes `.planning/release-evidence-v1.0.0.md`, then calls `distribution/generate-from-release-evidence.sh` to create `distribution/homebrew/quickstype.rb` and Winget manifest YAML.
+
 ## Expected Release Assets
 
 Each platform upload should add the Velopack package output for the selected channel, including:

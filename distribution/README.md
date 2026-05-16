@@ -52,3 +52,9 @@ bash distribution/generate-from-release-evidence.sh \
 ```
 
 The helper expects the evidence file to contain a `QuickSType-*-Setup.pkg` asset and a `QuickSType-*-Setup.exe` asset with SHA-256 values.
+
+The one-command stable release path wraps release dispatch, evidence collection, and manifest generation:
+
+```bash
+bash build/run-v1-release.sh 1.0.0 saherkh1/quickstype-net
+```
