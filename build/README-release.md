@@ -116,6 +116,14 @@ bash build/run-canary-release.sh 0.99.1 canary saherkh1/quickstype-net
 
 The helper refuses to run with a dirty working tree, verifies local `HEAD` matches the remote branch, checks workflows/secrets, dispatches `release.yml`, and watches the GitHub Actions run.
 
+To run both Phase 6 canary releases sequentially and collect both evidence files:
+
+```bash
+bash build/run-canary-pair.sh saherkh1/quickstype-net
+```
+
+The pair helper writes `.planning/release-evidence-v0.99.0.md` and `.planning/release-evidence-v0.99.1.md` after each successful release workflow. After it finishes, install `v0.99.0`, update to `v0.99.1`, and fill `tests/manual/UPDATE_CANARY_MATRIX.md`.
+
 ## Stable Dispatch
 
 For the final public release, dispatch the workflow manually on the stable channel. Do not rely on a tag push for stable, because tag pushes intentionally default to the canary channel during Phase 6.

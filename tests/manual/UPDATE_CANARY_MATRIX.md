@@ -11,10 +11,8 @@ This matrix must be completed with installed, signed/notarized release artifacts
 Before marking any row `PASS`:
 
 - `bash build/check-release-prereqs.sh saherkh1/quickstype-net` passes.
-- `bash build/run-canary-release.sh 0.99.0 canary saherkh1/quickstype-net` passes.
-- `bash build/run-canary-release.sh 0.99.1 canary saherkh1/quickstype-net` passes.
-- `bash build/collect-release-evidence.sh 0.99.0 saherkh1/quickstype-net .planning/release-evidence-v0.99.0.md` has been run.
-- `bash build/collect-release-evidence.sh 0.99.1 saherkh1/quickstype-net .planning/release-evidence-v0.99.1.md` has been run.
+- `bash build/run-canary-pair.sh saherkh1/quickstype-net` passes.
+- `.planning/release-evidence-v0.99.0.md` and `.planning/release-evidence-v0.99.1.md` exist.
 - The tester records OS version, CPU architecture, installed artifact name, SHA-256, and GitHub Release URL in Notes.
 
 ## Config Locations
@@ -71,9 +69,11 @@ Record these for both `v0.99.0` and `v0.99.1`:
 - Windows Artifact Signing status
 - `releases.canary.json` checksum
 
-Use the evidence collector after each release workflow succeeds:
+Use the evidence collector after each release workflow succeeds, or run `build/run-canary-pair.sh` to dispatch both canaries and collect both evidence files:
 
 ```bash
+bash build/run-canary-pair.sh saherkh1/quickstype-net
+
 bash build/collect-release-evidence.sh 0.99.0 saherkh1/quickstype-net .planning/release-evidence-v0.99.0.md
 bash build/collect-release-evidence.sh 0.99.1 saherkh1/quickstype-net .planning/release-evidence-v0.99.1.md
 ```
