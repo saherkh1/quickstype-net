@@ -9,6 +9,7 @@ expected="$tmp_dir/expected-secrets.txt"
 workflow="$tmp_dir/workflow-secrets.txt"
 prereqs="$tmp_dir/prereq-secrets.txt"
 template="$tmp_dir/template-secrets.txt"
+configure="$tmp_dir/configure-secrets.txt"
 
 cat > "$expected" <<'SECRETS'
 APPLE_APP_SPECIFIC_PASSWORD
@@ -45,6 +46,15 @@ grep -E '^[A-Z0-9_]+=' "$repo_root/build/release-secrets.env.example" \
   | grep -Ev '_P12_PATH$' \
   | sort -u > "$template"
 
+{
+  sed -n '/^scalar_secrets=(/,/^)/p' "$repo_root/build/configure-release-secrets.sh" \
+    | grep -E '^[[:space:]]+[A-Z0-9_]+$' \
+    | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'
+  sed -n '/^p12_secret_specs=(/,/^)/p' "$repo_root/build/configure-release-secrets.sh" \
+    | grep -E '^[[:space:]]+"[A-Z0-9_]+:[A-Z0-9_]+"$' \
+    | sed 's/^[[:space:]]*"//; s/:.*$//'
+} | sort -u > "$configure"
+
 compare_secret_set() {
   local label="$1"
   local actual="$2"
@@ -58,6 +68,7 @@ compare_secret_set() {
 compare_secret_set ".github/workflows/release.yml" "$workflow"
 compare_secret_set "build/check-release-prereqs.sh" "$prereqs"
 compare_secret_set "build/release-secrets.env.example" "$template"
+compare_secret_set "build/configure-release-secrets.sh" "$configure"
 
 require_reference() {
   local file="$1"
