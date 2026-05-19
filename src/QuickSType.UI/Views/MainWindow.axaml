@@ -141,7 +141,7 @@
               <TextBlock Text="{Binding TestTranscriptionResult}" TextWrapping="Wrap" />
             </Border>
             <Button Content="Record 3 s and transcribe" Command="{Binding TestTranscriptionCommand}"
-                    IsEnabled="{Binding !IsTesting}" HorizontalAlignment="Left" />
+                    HorizontalAlignment="Left" />
           </StackPanel>
 
         </StackPanel>
