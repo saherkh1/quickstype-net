@@ -13,6 +13,7 @@ public class ConfigRoundTripV3Tests
             EnableCrashTelemetry = true,
             KeyboardLayoutDriven = true,
             StreamingMode = "cpu",
+            EnableStreamingInsertion = false,
             PreferredModel = "ggml-small",
             UpdateChannel = "stable",
             UpdateSourceUrl = "https://github.com/saherk/quickstype",
@@ -26,6 +27,7 @@ public class ConfigRoundTripV3Tests
         rt!.EnableCrashTelemetry.ShouldBeTrue();
         rt.KeyboardLayoutDriven.ShouldBeTrue();
         rt.StreamingMode.ShouldBe("cpu");
+        rt.EnableStreamingInsertion.ShouldBeFalse();
         rt.PreferredModel.ShouldBe("ggml-small");
         rt.UpdateChannel.ShouldBe("stable");
         rt.UpdateSourceUrl.ShouldBe("https://github.com/saherk/quickstype");
@@ -42,6 +44,7 @@ public class ConfigRoundTripV3Tests
             EnableCrashTelemetry = true,
             KeyboardLayoutDriven = true,
             StreamingMode = "cpu",
+            EnableStreamingInsertion = false,
             PreferredModel = "ggml-small",
             UpdateChannel = "stable",
             UpdateSourceUrl = "https://github.com/saherk/quickstype",
@@ -52,6 +55,7 @@ public class ConfigRoundTripV3Tests
         json.ShouldContain("\"enable_crash_telemetry\"");
         json.ShouldContain("\"keyboard_layout_driven\"");
         json.ShouldContain("\"streaming_mode\"");
+        json.ShouldContain("\"enable_streaming_insertion\"");
         json.ShouldContain("\"preferred_model\"");
         json.ShouldContain("\"update_channel\"");
         json.ShouldContain("\"update_source_url\"");
@@ -89,6 +93,12 @@ public class ConfigRoundTripV3Tests
     public void Default_StreamingMode_is_auto()
     {
         new AppConfig().StreamingMode.ShouldBe("auto");
+    }
+
+    [Fact]
+    public void EnableStreamingInsertion_defaults_to_true()
+    {
+        new AppConfig().EnableStreamingInsertion.ShouldBeTrue();
     }
 
     [Fact]

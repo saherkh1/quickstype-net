@@ -43,6 +43,9 @@ public sealed record AppConfig
     [JsonPropertyName("streaming_mode")]
     public string StreamingMode { get; init; } = "auto";
 
+    [JsonPropertyName("enable_streaming_insertion")]
+    public bool EnableStreamingInsertion { get; init; } = true;
+
     [JsonPropertyName("preferred_model")]
     public string? PreferredModel { get; init; } = null;
 

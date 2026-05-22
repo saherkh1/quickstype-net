@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Text;
 using QuickSType.Core.Audio;
 using QuickSType.Core.Config;
 using QuickSType.Core.Hotkey;
@@ -187,16 +188,26 @@ public sealed class DictationEngine : IDisposable
     {
         try
         {
+            var streamedText = snapshot.EnableStreamingInsertion ? null : new StringBuilder();
             await foreach (var update in _streamer!.RunAsync(frames, sampleRate, snapshot, ct).ConfigureAwait(false))
             {
-                if (_incrementalInjector is not null)
+                if (snapshot.EnableStreamingInsertion && _incrementalInjector is not null)
                 {
                     try { await _incrementalInjector.ApplyAsync(update, ct).ConfigureAwait(false); }
                     catch (OperationCanceledException) { throw; }
                     catch (Exception ex) { _log.LogError(ex, "IncrementalInjector.ApplyAsync threw"); }
                 }
+                if (!snapshot.EnableStreamingInsertion)
+                {
+                    ApplyTranscriptUpdate(streamedText!, update);
+                }
                 try { TranscriptUpdate?.Invoke(update); }
                 catch (Exception ex) { _log.LogError(ex, "TranscriptUpdate handler threw"); }
+            }
+
+            if (streamedText is not null)
+            {
+                await CompleteDeferredStreamingPasteAsync(streamedText.ToString(), snapshot, ct).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException) { /* expected on timeout-cancel fallback */ }
@@ -204,6 +215,51 @@ public sealed class DictationEngine : IDisposable
         {
             _log.LogError(ex, "Streaming loop failed");
             Errored?.Invoke(ex);
+        }
+    }
+
+    private async Task CompleteDeferredStreamingPasteAsync(string text, AppConfig snapshot, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            _log.LogInformation("Empty streaming transcription; nothing to paste");
+            return;
+        }
+
+        await _paste.PasteAsync(text, ct).ConfigureAwait(false);
+        Transcribed?.Invoke(text);
+
+        if (_history is not null)
+        {
+            var entry = new HistoryEntry
+            {
+                Ts = DateTime.UtcNow.ToString("o"),
+                Text = text,
+                Model = snapshot.Model,
+                Lang = snapshot.ActiveLanguage,
+                DurationMs = 0,
+                Device = snapshot.SelectedAudioDevice,
+            };
+            _ = _history.AppendAsync(entry);
+        }
+
+        if (snapshot.ShowNotifications)
+        {
+            _notify.Notify("QuickSType", text.Length > 80 ? text[..80] + "…" : text);
+        }
+    }
+
+    private static void ApplyTranscriptUpdate(StringBuilder text, TranscriptUpdate update)
+    {
+        if (update.RetractChars > 0)
+        {
+            var count = Math.Min(update.RetractChars, text.Length);
+            text.Remove(text.Length - count, count);
+        }
+
+        if (!string.IsNullOrEmpty(update.AppendText))
+        {
+            text.Append(update.AppendText);
         }
     }
 

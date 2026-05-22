@@ -6,8 +6,9 @@
         x:Class="QuickSType.UI.Views.MainWindow"
         x:DataType="vm:SettingsViewModel"
         Title="QuickSType"
-        Width="720" Height="640"
-        MinWidth="600" MinHeight="500"
+        Width="720"
+        MinWidth="600" MinHeight="500" MaxHeight="900"
+        SizeToContent="Height"
         WindowStartupLocation="CenterScreen">
 
   <Window.Styles>
@@ -38,8 +39,8 @@
   <TabControl Name="MainTabs" TabStripPlacement="Top" Padding="0">
 
     <TabItem Header="General" Name="TabGeneral">
-      <ScrollViewer Padding="32,24">
-        <StackPanel Spacing="20" MaxWidth="560" HorizontalAlignment="Stretch">
+      <ScrollViewer>
+        <StackPanel Spacing="20" MaxWidth="560" HorizontalAlignment="Stretch" Margin="32,24">
 
           <TextBlock Classes="h1" Text="General" />
           <TextBlock Classes="muted" Text="Hotkey, microphone, transcription engine, and startup behaviour." />
@@ -135,10 +136,14 @@
                       Command="{Binding ToggleStartAtLoginCommand}" />
           </StackPanel>
 
-          <StackPanel Spacing="6" Margin="0,0,0,32">
+          <StackPanel Spacing="8">
             <TextBlock Classes="h2" Text="Test transcription" />
-            <Border Background="{DynamicResource SystemAltLowColor}" Padding="12" CornerRadius="4" MinHeight="48">
-              <TextBlock Text="{Binding TestTranscriptionResult}" TextWrapping="Wrap" />
+            <Border Background="{DynamicResource SystemAltLowColor}"
+                    BorderBrush="{DynamicResource SystemBaseLowColor}"
+                    BorderThickness="1"
+                    Padding="12" CornerRadius="4" MinHeight="48">
+              <TextBlock Text="{Binding TestTranscriptionResult}"
+                         TextWrapping="Wrap" />
             </Border>
             <Button Content="Record 3 s and transcribe" Command="{Binding TestTranscriptionCommand}"
                     HorizontalAlignment="Left" />
@@ -149,8 +154,8 @@
     </TabItem>
 
     <TabItem Header="Languages" Name="TabLanguages">
-      <ScrollViewer Padding="32,24" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Spacing="16" MaxWidth="560" HorizontalAlignment="Stretch">
+      <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="16" MaxWidth="560" HorizontalAlignment="Stretch" Margin="32,24">
 
           <TextBlock Classes="h1" Text="Languages" />
           <TextBlock Classes="muted"
@@ -193,8 +198,8 @@
     </TabItem>
 
     <TabItem Header="Models" Name="TabModels">
-      <ScrollViewer Padding="32,24">
-        <StackPanel Spacing="16" MaxWidth="560">
+      <ScrollViewer>
+        <StackPanel Spacing="16" MaxWidth="560" Margin="32,24">
 
           <TextBlock Classes="h1" Text="Whisper models" />
           <TextBlock Classes="muted" Text="QuickSType uses whisper.cpp ggml models. Download a model before recording. The Q5 turbo variant is a good balance of size, speed, and accuracy." />
@@ -249,8 +254,8 @@
     </TabItem>
 
     <TabItem Header="About" Name="TabAbout">
-      <ScrollViewer Padding="32,32">
-        <StackPanel Spacing="14" MaxWidth="520" HorizontalAlignment="Center">
+      <ScrollViewer>
+        <StackPanel Spacing="14" MaxWidth="520" HorizontalAlignment="Center" Margin="32,32">
 
           <TextBlock Text="QuickSType" FontSize="28" FontWeight="SemiBold" HorizontalAlignment="Center" />
           <TextBlock Text="{Binding CurrentVersionText}" HorizontalAlignment="Center" Opacity="0.7" />
