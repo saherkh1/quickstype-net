@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\QuickSType.Core\QuickSType.Core.csproj" />
+    <ProjectReference Include="..\..\src\QuickSType.Platform.Mac\QuickSType.Platform.Mac.csproj" Condition="$([MSBuild]::IsOSPlatform('OSX'))" />
   </ItemGroup>
 
 </Project>

@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\QuickSType.Core\QuickSType.Core.csproj" />
+    <InternalsVisibleTo Include="QuickSType.Core.Tests" />
   </ItemGroup>
 
 </Project>

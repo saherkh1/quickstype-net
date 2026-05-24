@@ -30,22 +30,34 @@ public sealed class MacTrayPositionService : ITrayPositionService
 
     private static System.Drawing.Rectangle GetFallbackRect()
     {
-        // D-12 Mac: top-right of primary screen, 20px from right, 4px below menu bar.
-        // Uses CGDisplayBounds (C function — P/Invoke struct-return works correctly).
         try
         {
             var displayId = CGMainDisplayID();
             var bounds = CGDisplayBounds(displayId);
-            return new System.Drawing.Rectangle(
-                (int)(bounds.X + bounds.Width - 20),
-                (int)(bounds.Y + bounds.Height + 4),
-                1, 1);
+            return ComputeFallbackRect(bounds.X, bounds.Y, bounds.Width, bounds.Height);
         }
         catch
         {
             // Hail-Mary hardcoded fallback for 14" MacBook Pro notch-screen.
             return new System.Drawing.Rectangle(1860, 4, 1, 1);
         }
+    }
+
+    /// <summary>
+    /// Pure math helper: given primary-display bounds in screen coordinates, return the
+    /// fallback "where the status item probably is" 1×1 rect.
+    ///
+    /// D-12 Mac: top-right of primary screen, 20px from right edge, 4px below menu bar.
+    /// macOS status items live in the menu bar at the TOP of the display, so Y must be near
+    /// bounds.Y (top), NOT bounds.Y + bounds.Height (which is below the bottom edge and
+    /// pushes the HUD off-screen — see debug session hud-not-showing).
+    /// </summary>
+    internal static System.Drawing.Rectangle ComputeFallbackRect(double x, double y, double width, double height)
+    {
+        return new System.Drawing.Rectangle(
+            (int)(x + width - 20),
+            (int)(y + 4),
+            1, 1);
     }
 
     [StructLayout(LayoutKind.Sequential)]
