@@ -6,8 +6,9 @@
         x:Class="QuickSType.UI.Views.MainWindow"
         x:DataType="vm:SettingsViewModel"
         Title="QuickSType"
-        Width="720" Height="640"
-        MinWidth="600" MinHeight="500"
+        Width="720"
+        MinWidth="600" MinHeight="500" MaxHeight="900"
+        SizeToContent="Height"
         WindowStartupLocation="CenterScreen">
 
   <Window.Styles>
@@ -38,8 +39,8 @@
   <TabControl Name="MainTabs" TabStripPlacement="Top" Padding="0">
 
     <TabItem Header="General" Name="TabGeneral">
-      <ScrollViewer Padding="32,24">
-        <StackPanel Spacing="20" MaxWidth="560" HorizontalAlignment="Stretch">
+      <ScrollViewer>
+        <StackPanel Spacing="20" MaxWidth="560" HorizontalAlignment="Stretch" Margin="32,24">
 
           <TextBlock Classes="h1" Text="General" />
           <TextBlock Classes="muted" Text="Hotkey, microphone, transcription engine, and startup behaviour." />
@@ -101,6 +102,7 @@
 
           <StackPanel Spacing="6">
             <TextBlock Classes="h2" Text="Streaming mode" />
+            <TextBlock Classes="muted" Text="Choose when QuickSType turns speech into text." />
             <ComboBox ItemsSource="{Binding StreamingModes}"
                       SelectedValue="{Binding StreamingMode}"
                       SelectedValueBinding="{Binding Value}"
@@ -112,7 +114,10 @@
               </ComboBox.ItemTemplate>
             </ComboBox>
             <Button Content="Save mode" Command="{Binding SaveModeCommand}" HorizontalAlignment="Left" />
-            <TextBlock Classes="muted" Text="Auto starts streaming if your hardware supports it and falls back automatically. Always stream ignores the hardware check. Commit on pause decodes only when you release the hotkey." />
+            <TextBlock Classes="muted" Text="Auto uses live transcription when your hardware supports it. After release only waits until you let go of the hotkey." />
+            <CheckBox Content="Type live text while speaking"
+                      IsChecked="{Binding EnableStreamingInsertion}" />
+            <TextBlock Classes="muted" Text="Turn this off if you want live transcription internally, but only paste the final text after release." />
           </StackPanel>
 
           <StackPanel Spacing="6">
@@ -131,13 +136,17 @@
                       Command="{Binding ToggleStartAtLoginCommand}" />
           </StackPanel>
 
-          <StackPanel Spacing="6">
+          <StackPanel Spacing="8">
             <TextBlock Classes="h2" Text="Test transcription" />
-            <Button Content="Record 3 s and transcribe" Command="{Binding TestTranscriptionCommand}"
-                    IsEnabled="{Binding !IsTesting}" HorizontalAlignment="Left" />
-            <Border Background="{DynamicResource SystemAltLowColor}" Padding="12" CornerRadius="4" MinHeight="48">
-              <TextBlock Text="{Binding TestTranscriptionResult}" TextWrapping="Wrap" />
+            <Border Background="{DynamicResource SystemAltLowColor}"
+                    BorderBrush="{DynamicResource SystemBaseLowColor}"
+                    BorderThickness="1"
+                    Padding="12" CornerRadius="4" MinHeight="48">
+              <TextBlock Text="{Binding TestTranscriptionResult}"
+                         TextWrapping="Wrap" />
             </Border>
+            <Button Content="Record 3 s and transcribe" Command="{Binding TestTranscriptionCommand}"
+                    HorizontalAlignment="Left" />
           </StackPanel>
 
         </StackPanel>
@@ -145,8 +154,8 @@
     </TabItem>
 
     <TabItem Header="Languages" Name="TabLanguages">
-      <ScrollViewer Padding="32,24">
-        <StackPanel Spacing="16" MaxWidth="560">
+      <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="16" MaxWidth="560" HorizontalAlignment="Stretch" Margin="32,24">
 
           <TextBlock Classes="h1" Text="Languages" />
           <TextBlock Classes="muted"
@@ -159,10 +168,13 @@
           </Border>
 
           <Border Background="{DynamicResource SystemAltLowColor}" CornerRadius="6" Padding="12,8">
-            <StackPanel Orientation="Horizontal" Spacing="8">
+            <Grid ColumnDefinitions="Auto,*">
               <TextBlock Text="Currently active:" FontWeight="SemiBold" />
-              <TextBlock Text="{Binding ActiveLanguageDisplay}" />
-            </StackPanel>
+              <TextBlock Grid.Column="1"
+                         Text="{Binding ActiveLanguageDisplay}"
+                         TextWrapping="Wrap"
+                         Margin="8,0,0,0" />
+            </Grid>
           </Border>
 
           <TextBlock Classes="h2" Text="Show in tray menu" />
@@ -170,7 +182,13 @@
           <ItemsControl ItemsSource="{Binding AvailableLanguages}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:LanguageRow">
-                <CheckBox Content="{Binding Label}" IsChecked="{Binding IsEnabled}" Margin="0,2" />
+                <CheckBox IsChecked="{Binding IsEnabled}"
+                          Margin="0,3"
+                          HorizontalAlignment="Stretch">
+                  <TextBlock Text="{Binding Label}"
+                             TextWrapping="Wrap"
+                             MaxWidth="500" />
+                </CheckBox>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
@@ -180,8 +198,8 @@
     </TabItem>
 
     <TabItem Header="Models" Name="TabModels">
-      <ScrollViewer Padding="32,24">
-        <StackPanel Spacing="16" MaxWidth="560">
+      <ScrollViewer>
+        <StackPanel Spacing="16" MaxWidth="560" Margin="32,24">
 
           <TextBlock Classes="h1" Text="Whisper models" />
           <TextBlock Classes="muted" Text="QuickSType uses whisper.cpp ggml models. Download a model before recording. The Q5 turbo variant is a good balance of size, speed, and accuracy." />
@@ -236,8 +254,8 @@
     </TabItem>
 
     <TabItem Header="About" Name="TabAbout">
-      <ScrollViewer Padding="32,32">
-        <StackPanel Spacing="14" MaxWidth="520" HorizontalAlignment="Center">
+      <ScrollViewer>
+        <StackPanel Spacing="14" MaxWidth="520" HorizontalAlignment="Center" Margin="32,32">
 
           <TextBlock Text="QuickSType" FontSize="28" FontWeight="SemiBold" HorizontalAlignment="Center" />
           <TextBlock Text="{Binding CurrentVersionText}" HorizontalAlignment="Center" Opacity="0.7" />

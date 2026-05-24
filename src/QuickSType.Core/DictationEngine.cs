@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Text;
 using QuickSType.Core.Audio;
 using QuickSType.Core.Config;
 using QuickSType.Core.Hotkey;
@@ -13,6 +14,7 @@ namespace QuickSType.Core;
 public enum DictationState
 {
     Idle,
+    LoadingModel,   // model swap in progress; HUD visible; hotkey release cancels
     Recording,
     Streaming,
     Processing,
@@ -102,6 +104,26 @@ public sealed class DictationEngine : IDisposable
         return _specs.IsStreamingCapable() ? "streaming" : "commit-on-pause";
     }
 
+    /// <summary>
+    /// Resolves the Whisper model ID to use for the current dictation.
+    /// D-09: lazy — called at dictation start, not in advance.
+    /// D-12: AutoLanguage bypasses per-language map entirely.
+    /// T-08-04: validates the assigned id against the catalog to prevent path traversal / stale-config crash.
+    /// </summary>
+    internal static string ResolveModelId(AppConfig cfg)
+    {
+        // D-12: AutoLanguage = global model, no per-language map
+        if (cfg.AutoLanguage) return cfg.Model;
+
+        if (cfg.LanguageModels.TryGetValue(cfg.ActiveLanguage, out var langModel)
+            && !string.IsNullOrEmpty(langModel)
+            && ModelCatalog.Find(langModel) is not null)   // T-08-04: validate against catalog
+        {
+            return langModel;
+        }
+        return cfg.Model;   // fallback to global
+    }
+
     internal AppConfig ApplyLayoutLanguageHint(AppConfig cfg)
     {
         if (!cfg.KeyboardLayoutDriven || _keyboardLayout is null) return cfg;
@@ -153,6 +175,13 @@ public sealed class DictationEngine : IDisposable
 
     public void OnHotkeyReleased()
     {
+        // D-11: hotkey release during model load cancels via WaitAsync(ct) path and returns to Idle
+        if (_state == DictationState.LoadingModel)
+        {
+            _cts?.Cancel();
+            return;
+        }
+
         if (_state == DictationState.Streaming)
         {
             // B3: complete channel via _audio.Stop() — NOT _cts.Cancel()
@@ -187,16 +216,26 @@ public sealed class DictationEngine : IDisposable
     {
         try
         {
+            var streamedText = snapshot.EnableStreamingInsertion ? null : new StringBuilder();
             await foreach (var update in _streamer!.RunAsync(frames, sampleRate, snapshot, ct).ConfigureAwait(false))
             {
-                if (_incrementalInjector is not null)
+                if (snapshot.EnableStreamingInsertion && _incrementalInjector is not null)
                 {
                     try { await _incrementalInjector.ApplyAsync(update, ct).ConfigureAwait(false); }
                     catch (OperationCanceledException) { throw; }
                     catch (Exception ex) { _log.LogError(ex, "IncrementalInjector.ApplyAsync threw"); }
                 }
+                if (!snapshot.EnableStreamingInsertion)
+                {
+                    ApplyTranscriptUpdate(streamedText!, update);
+                }
                 try { TranscriptUpdate?.Invoke(update); }
                 catch (Exception ex) { _log.LogError(ex, "TranscriptUpdate handler threw"); }
+            }
+
+            if (streamedText is not null)
+            {
+                await CompleteDeferredStreamingPasteAsync(streamedText.ToString(), snapshot, ct).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException) { /* expected on timeout-cancel fallback */ }
@@ -204,6 +243,51 @@ public sealed class DictationEngine : IDisposable
         {
             _log.LogError(ex, "Streaming loop failed");
             Errored?.Invoke(ex);
+        }
+    }
+
+    private async Task CompleteDeferredStreamingPasteAsync(string text, AppConfig snapshot, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            _log.LogInformation("Empty streaming transcription; nothing to paste");
+            return;
+        }
+
+        await _paste.PasteAsync(text, ct).ConfigureAwait(false);
+        Transcribed?.Invoke(text);
+
+        if (_history is not null)
+        {
+            var entry = new HistoryEntry
+            {
+                Ts = DateTime.UtcNow.ToString("o"),
+                Text = text,
+                Model = snapshot.Model,
+                Lang = snapshot.ActiveLanguage,
+                DurationMs = 0,
+                Device = snapshot.SelectedAudioDevice,
+            };
+            _ = _history.AppendAsync(entry);
+        }
+
+        if (snapshot.ShowNotifications)
+        {
+            _notify.Notify("QuickSType", text.Length > 80 ? text[..80] + "…" : text);
+        }
+    }
+
+    private static void ApplyTranscriptUpdate(StringBuilder text, TranscriptUpdate update)
+    {
+        if (update.RetractChars > 0)
+        {
+            var count = Math.Min(update.RetractChars, text.Length);
+            text.Remove(text.Length - count, count);
+        }
+
+        if (!string.IsNullOrEmpty(update.AppendText))
+        {
+            text.Append(update.AppendText);
         }
     }
 
@@ -253,7 +337,8 @@ public sealed class DictationEngine : IDisposable
                 return;
             }
 
-            var modelPath = ModelCatalog.PathFor(_config.Model);
+            var modelId = ResolveModelId(_config);
+            var modelPath = ModelCatalog.PathFor(modelId);
             if (!File.Exists(modelPath))
             {
                 _log.LogError("Model not installed: {Path}", modelPath);
@@ -263,7 +348,15 @@ public sealed class DictationEngine : IDisposable
             }
 
             var useGpu = _config.TranscriptionBackend != "cpu";
-            _transcriber.EnsureLoaded(modelPath, useGpu);
+            if (_transcriber.LoadedModelPath != modelPath)
+            {
+                SetState(DictationState.LoadingModel);
+                // D-11: WaitAsync(ct) unblocks the awaiter when hotkey is released → OperationCanceledException
+                // → finally block → SetState(Idle). The background Task.Run continues (mmap is idempotent).
+                // CRITICAL: Use Task.Run(...).WaitAsync(ct) — NOT Task.Run(..., ct).
+                // The CancellationToken overload of Task.Run only cancels scheduling, not the running sync work.
+                await Task.Run(() => _transcriber.EnsureLoaded(modelPath, useGpu)).WaitAsync(ct);
+            }
 
             var text = await _transcriber.TranscribeAsync(samples, _audio.SampleRate, _config, ct);
             if (string.IsNullOrWhiteSpace(text))

@@ -20,6 +20,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly ILogger _log;
     private bool _suppressLanguageSync;
     private bool _suppressTelemetrySync;
+    private bool _suppressStreamingInsertionSync;
 
     [ObservableProperty] private string _hotkeyDisplay;
     [ObservableProperty] private bool _isCapturingHotkey;
@@ -29,12 +30,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string? _selectedAudioDevice;
     [ObservableProperty] private string _transcriptionBackend;
     [ObservableProperty] private string _streamingMode;
+    [ObservableProperty] private bool _enableStreamingInsertion;
     [ObservableProperty] private string _appearanceSetting;
     [ObservableProperty] private bool _showNotifications;
     [ObservableProperty] private bool _enableCrashTelemetry;
     [ObservableProperty] private bool _startAtLogin;
     [ObservableProperty] private string _testTranscriptionResult = string.Empty;
-    [ObservableProperty] private bool _isTesting;
     [ObservableProperty] private double _modelDownloadPercent;
     [ObservableProperty] private string _modelDownloadStatus = string.Empty;
     [ObservableProperty] private bool _isFirstRun;
@@ -60,9 +61,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     public ObservableCollection<string> AppearanceSettings { get; } = new() { "Auto", "On", "Off" };
     public ObservableCollection<StreamingModeOption> StreamingModes { get; } = new()
     {
-        new("auto", "Auto (recommended)"),
-        new("streaming", "Always stream"),
-        new("commit-on-pause", "Commit on pause"),
+        new("auto", "Auto"),
+        new("streaming", "Live transcription"),
+        new("commit-on-pause", "After release only"),
     };
 
     public SettingsViewModel(AppHost host)
@@ -111,6 +112,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _selectedAudioDevice = c.SelectedAudioDevice;
         _transcriptionBackend = c.TranscriptionBackend;
         _streamingMode = c.StreamingMode;
+        _enableStreamingInsertion = c.EnableStreamingInsertion;
         _appearanceSetting = c.EnableVibrancy switch
         {
             true => "On",
@@ -143,6 +145,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         try
         {
             AutoLanguage = cfg.AutoLanguage;
+            _suppressStreamingInsertionSync = true;
+            try { EnableStreamingInsertion = cfg.EnableStreamingInsertion; }
+            finally { _suppressStreamingInsertionSync = false; }
             var enabled = new HashSet<string>(cfg.Languages, StringComparer.OrdinalIgnoreCase);
             foreach (var row in AvailableLanguages)
             {
@@ -174,6 +179,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         if (_suppressLanguageSync) return;
         _host.UpdateConfig(_host.Config.WithAutoLanguage(value));
+    }
+
+    partial void OnEnableStreamingInsertionChanged(bool value)
+    {
+        if (_suppressStreamingInsertionSync) return;
+        Save(c => c with { EnableStreamingInsertion = value });
     }
 
     partial void OnAppearanceSettingChanged(string value)
@@ -302,32 +313,83 @@ public sealed partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     private async Task TestTranscription()
     {
-        IsTesting = true;
-        TestTranscriptionResult = "Recording 3 s…";
+        TestTranscriptionResult = "Recording 3 seconds. Speak now.";
+        var recordingStarted = false;
         try
         {
+            await Task.Yield();
+            _host.Audio.SelectInputDevice(SelectedAudioDevice ?? _host.Config.SelectedAudioDevice);
             _host.Audio.Start();
+            recordingStarted = true;
             await Task.Delay(3000);
             var samples = _host.Audio.Stop();
-            TestTranscriptionResult = "Transcribing…";
-            var modelPath = ModelCatalog.PathFor(_host.Config.Model);
-            if (!File.Exists(modelPath))
+            recordingStarted = false;
+
+            if (samples.Length < _host.Audio.SampleRate / 5)
             {
-                TestTranscriptionResult = $"Model not installed: {_host.Config.Model}";
+                TestTranscriptionResult = "No audio was captured. Check microphone permission and the selected input device.";
                 return;
             }
-            _host.Transcriber.EnsureLoaded(modelPath);
-            var text = await _host.Transcriber.TranscribeAsync(samples, _host.Audio.SampleRate, _host.Config);
-            TestTranscriptionResult = string.IsNullOrWhiteSpace(text) ? "(no speech detected)" : text;
+
+            var seconds = samples.Length / (double)_host.Audio.SampleRate;
+            TestTranscriptionResult = $"Transcribing {seconds:F1} seconds of audio…";
+            await Task.Yield();
+
+            var modelId = ResolveTestModelId();
+            var modelPath = ModelCatalog.PathFor(modelId);
+            if (!File.Exists(modelPath))
+            {
+                TestTranscriptionResult = $"Model not installed: {modelId}. Download it from the Models tab first.";
+                return;
+            }
+
+            var useGpu = TranscriptionBackend != "cpu";
+            _host.Transcriber.EnsureLoaded(modelPath, useGpu);
+
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+            var config = _host.Config with
+            {
+                Model = modelId,
+                TranscriptionBackend = TranscriptionBackend,
+            };
+            var text = await _host.Transcriber.TranscribeAsync(
+                samples,
+                _host.Audio.SampleRate,
+                config,
+                timeout.Token);
+            TestTranscriptionResult = string.IsNullOrWhiteSpace(text)
+                ? $"No speech recognized from {seconds:F1} seconds of audio. Try speaking closer to the microphone or choose another input device."
+                : text;
+        }
+        catch (OperationCanceledException)
+        {
+            TestTranscriptionResult = "Transcription timed out after 45 seconds. Try a smaller model or CPU backend.";
         }
         catch (Exception ex)
         {
+            _log.LogWarning(ex, "Settings test transcription failed");
             TestTranscriptionResult = $"Error: {ex.Message}";
         }
         finally
         {
-            IsTesting = false;
+            if (recordingStarted && _host.Audio.IsRecording)
+            {
+                try { _host.Audio.Stop(); }
+                catch (Exception ex) { _log.LogWarning(ex, "Stopping test transcription recording failed"); }
+            }
         }
+    }
+
+    private string ResolveTestModelId()
+    {
+        if (!string.IsNullOrWhiteSpace(SelectedModel)
+            && ModelCatalog.Find(SelectedModel) is not null
+            && File.Exists(ModelCatalog.PathFor(SelectedModel)))
+        {
+            return SelectedModel;
+        }
+
+        return _host.Config.Model;
     }
 
     [RelayCommand]
