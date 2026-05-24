@@ -56,6 +56,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     private PostUpdateSelfCheckResult _postUpdateSelfCheckResult = PostUpdateSelfCheckResult.None("unknown");
 
     public ObservableCollection<ModelRowViewModel> AvailableModels { get; }
+    public ObservableCollection<PerLanguageModelRow> LanguageModelRows { get; }
+    public ObservableCollection<DownloadedModelRow> DownloadedModels { get; }
+    [ObservableProperty] private string _downloadedCountText = string.Empty;
     public ObservableCollection<AudioDeviceInfo> AudioDevices { get; }
     public ObservableCollection<LanguageRow> AvailableLanguages { get; }
     public ObservableCollection<string> Backends { get; } = new() { "auto", "cpu", "metal", "cuda" };
@@ -107,7 +110,12 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         AvailableModels = new ObservableCollection<ModelRowViewModel>(
             ModelCatalog.All
+                .Where(m => m.LanguageCode is null)
                 .Select(m => new ModelRowViewModel(m, host.SystemSpecs, host.SystemSpecsService)));
+
+        LanguageModelRows = new ObservableCollection<PerLanguageModelRow>(BuildLanguageModelRows(c));
+        DownloadedModels = new ObservableCollection<DownloadedModelRow>();
+        RefreshDownloadedModels();
 
         _hotkeyDisplay = HotkeyService.Format(HotkeyService.ParseKey(c.Hotkey));
         _autoLanguage = c.AutoLanguage;
@@ -144,6 +152,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     private void OnConfigChanged(AppConfig cfg)
     {
+        RebuildLanguageModelRowsIfNeeded(cfg);
         _suppressLanguageSync = true;
         try
         {
@@ -266,8 +275,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
             ModelDownloadStatus = $"{model.DisplayName} ready.";
             _ = AutoClearStatusAsync($"{model.DisplayName} ready.", TimeSpan.FromSeconds(5));
-            foreach (var row in AvailableModels)
-                row.RefreshInstallStatus();
+            RefreshDownloadedModels();
         }
         catch (Exception ex)
         {
@@ -506,6 +514,46 @@ public sealed partial class SettingsViewModel : ObservableObject
         if (_ownerWindow is null) return;
         var flyout = new Views.LanguageModelFlyoutWindow(langCode, _host);
         await flyout.ShowDialog(_ownerWindow);
+    }
+
+    private IEnumerable<PerLanguageModelRow> BuildLanguageModelRows(AppConfig config)
+    {
+        return config.Languages.Select(code =>
+        {
+            var info = Languages.Find(code);
+            var row = new PerLanguageModelRow(code, info?.DisplayName ?? code, _host, config);
+            row.DownloadCompleted = RefreshDownloadedModels;
+            return row;
+        });
+    }
+
+    private void RebuildLanguageModelRowsIfNeeded(AppConfig cfg)
+    {
+        var newCodes = new HashSet<string>(cfg.Languages, StringComparer.OrdinalIgnoreCase);
+        var currentCodes = new HashSet<string>(LanguageModelRows.Select(r => r.LangCode), StringComparer.OrdinalIgnoreCase);
+
+        if (newCodes.SetEquals(currentCodes))
+        {
+            foreach (var row in LanguageModelRows)
+                row.SyncFromConfig(cfg);
+        }
+        else
+        {
+            LanguageModelRows.Clear();
+            foreach (var row in BuildLanguageModelRows(cfg))
+                LanguageModelRows.Add(row);
+        }
+    }
+
+    private void RefreshDownloadedModels()
+    {
+        DownloadedModels.Clear();
+        var installed = ModelCatalog.All.Where(m => ModelCatalog.IsInstalled(m.Id)).ToList();
+        foreach (var m in installed)
+            DownloadedModels.Add(new DownloadedModelRow(m, _ => RefreshDownloadedModels()));
+        DownloadedCountText = $"{installed.Count} of {ModelCatalog.All.Count}";
+        foreach (var row in AvailableModels)
+            row.RefreshInstallStatus();
     }
 
     private void Save(Func<AppConfig, AppConfig> update)

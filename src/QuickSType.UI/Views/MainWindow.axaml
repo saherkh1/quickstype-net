@@ -208,14 +208,17 @@
 
     <TabItem Header="Models" Name="TabModels">
       <ScrollViewer>
-        <StackPanel Spacing="16" MaxWidth="560" Margin="32,24">
+        <StackPanel Spacing="0" MaxWidth="560" Margin="32,24">
 
           <TextBlock Classes="h1" Text="Whisper models" />
-          <TextBlock Classes="muted" Text="QuickSType uses whisper.cpp ggml models. Download a model before recording. The Q5 turbo variant is a good balance of size, speed, and accuracy." />
+          <TextBlock Classes="muted" Margin="0,4,0,20"
+                     Text="Configure a default model and per-language overrides." />
 
+          <!-- First-run banner -->
           <Border Background="{DynamicResource SystemAltLowColor}"
                   CornerRadius="6"
                   Padding="16,12"
+                  Margin="0,0,0,16"
                   IsVisible="{Binding IsFirstRun}">
             <StackPanel Spacing="8">
               <TextBlock Classes="h1" Text="Pick a model to get started" />
@@ -224,76 +227,126 @@
             </StackPanel>
           </Border>
 
-          <ListBox ItemsSource="{Binding AvailableModels}"
-                   SelectedValue="{Binding SelectedModel}"
-                   SelectedValueBinding="{Binding Model.Id}"
-                   MaxHeight="380"
-                   HorizontalAlignment="Stretch">
-            <ListBox.ItemTemplate>
+          <!-- ── SECTION: General model ────────────────────────── -->
+          <TextBlock FontWeight="SemiBold" FontSize="14" Text="General model" Margin="0,0,0,2" />
+          <TextBlock Classes="muted" Margin="0,0,0,8" Text="Default fallback for any language." />
+
+          <ComboBox ItemsSource="{Binding AvailableModels}"
+                    SelectedValue="{Binding SelectedModel}"
+                    SelectedValueBinding="{Binding Model.Id}"
+                    HorizontalAlignment="Stretch"
+                    Margin="0,0,0,8">
+            <ComboBox.ItemTemplate>
               <DataTemplate x:DataType="vm:ModelRowViewModel">
-                <DockPanel Margin="2,4" LastChildFill="True">
-
-                  <!-- right-side badges -->
-                  <StackPanel DockPanel.Dock="Right"
-                              Orientation="Horizontal"
-                              Spacing="6"
-                              VerticalAlignment="Top"
-                              Margin="8,2,0,0">
-                    <!-- language tag -->
-                    <Border Background="#3A6EA8"
-                            CornerRadius="4"
-                            Padding="5,2"
-                            IsVisible="{Binding IsLanguageSpecific}">
-                      <TextBlock Text="{Binding LanguageTag}"
-                                 Foreground="White"
-                                 FontSize="10"
-                                 FontWeight="SemiBold" />
-                    </Border>
-                    <!-- downloaded badge -->
-                    <Border Background="#2E7D32"
-                            CornerRadius="4"
-                            Padding="5,2"
-                            IsVisible="{Binding IsInstalled}">
-                      <TextBlock Text="✓ downloaded"
-                                 Foreground="White"
-                                 FontSize="10"
-                                 FontWeight="SemiBold" />
-                    </Border>
-                  </StackPanel>
-
-                  <!-- model info -->
-                  <StackPanel Spacing="2">
-                    <TextBlock Text="{Binding Model.DisplayName}" FontWeight="SemiBold" />
-                    <TextBlock Text="{Binding Model.Description}"
-                               Opacity="0.7"
-                               FontSize="12"
-                               TextWrapping="Wrap" />
-                    <TextBlock Text="{Binding HardwareWarning}"
-                               FontSize="12"
-                               Foreground="#D9822B"
-                               IsVisible="{Binding HardwareWarning,
-                                           Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                  </StackPanel>
-
-                </DockPanel>
+                <StackPanel Spacing="2">
+                  <TextBlock Text="{Binding Model.DisplayName}" FontWeight="SemiBold" />
+                  <TextBlock Text="{Binding Model.Description}" Opacity="0.7" FontSize="12" />
+                  <TextBlock Text="{Binding HardwareWarning}"
+                             FontSize="12"
+                             Foreground="#D9822B"
+                             IsVisible="{Binding HardwareWarning,
+                                         Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                </StackPanel>
               </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
 
-          <StackPanel Orientation="Horizontal" Spacing="12">
+          <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,0,0,6">
             <Button Content="Save selection" Command="{Binding SaveModelCommand}" />
             <Button Content="Download" Command="{Binding DownloadSelectedModelCommand}" Classes="accent" />
           </StackPanel>
+          <ProgressBar Value="{Binding ModelDownloadPercent}" Maximum="100" Height="6" Margin="0,0,0,2" />
+          <TextBlock Text="{Binding ModelDownloadStatus}" FontSize="11" Opacity="0.7" Margin="0,0,0,20" />
 
-          <ProgressBar Value="{Binding ModelDownloadPercent}" Maximum="100" Height="6" />
-          <TextBlock Text="{Binding ModelDownloadStatus}" FontSize="11" Opacity="0.7" />
+          <!-- ── SECTION: Per-language model rows ──────────────── -->
+          <ItemsControl ItemsSource="{Binding LanguageModelRows}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:PerLanguageModelRow">
+                <StackPanel Spacing="4" Margin="0,0,0,16">
 
-          <Border BorderBrush="{DynamicResource SystemBaseLowColor}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,16,0,0">
-            <StackPanel Spacing="4">
-              <TextBlock Text="Currently selected" FontWeight="SemiBold" />
-              <TextBlock Text="{Binding SelectedModel}" Opacity="0.8" />
-            </StackPanel>
-          </Border>
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="ᵀA" FontSize="14" Opacity="0.65" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding HeadingText}"
+                               FontWeight="SemiBold"
+                               FontSize="14"
+                               VerticalAlignment="Center" />
+                  </StackPanel>
+                  <TextBlock Text="{Binding SubtitleText}" Classes="muted" Margin="0,0,0,4" />
+
+                  <ComboBox ItemsSource="{Binding Options}"
+                            SelectedItem="{Binding SelectedOption}"
+                            HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:LanguageModelOption">
+                        <TextBlock Text="{Binding DisplayName}" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+
+                  <ProgressBar Value="{Binding DownloadPercent}"
+                               Maximum="100"
+                               Height="4"
+                               Margin="0,4,0,0"
+                               IsVisible="{Binding IsDownloading}" />
+                  <TextBlock Text="{Binding DownloadStatus}"
+                             FontSize="11"
+                             Opacity="0.7"
+                             IsVisible="{Binding IsDownloading}" />
+
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <!-- ── DIVIDER ─────────────────────────────────────────── -->
+          <Border Height="1" Background="{DynamicResource SystemBaseLowColor}" Margin="0,4,0,16" />
+
+          <!-- ── SECTION: Downloaded models ─────────────────────── -->
+          <DockPanel LastChildFill="False" Margin="0,0,0,4">
+            <TextBlock Text="Downloaded models"
+                       FontWeight="SemiBold"
+                       FontSize="14"
+                       VerticalAlignment="Center" />
+            <TextBlock Text="{Binding DownloadedCountText}"
+                       Opacity="0.55"
+                       FontSize="13"
+                       VerticalAlignment="Center"
+                       DockPanel.Dock="Right" />
+          </DockPanel>
+          <TextBlock Classes="muted" Margin="0,0,0,10"
+                     Text="Manage your downloaded Whisper models." />
+
+          <ItemsControl ItemsSource="{Binding DownloadedModels}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:DownloadedModelRow">
+                <Border Background="{DynamicResource SystemAltLowColor}"
+                        BorderBrush="{DynamicResource SystemBaseLowColor}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="14,10"
+                        Margin="0,0,0,6">
+                  <DockPanel LastChildFill="True">
+                    <Button DockPanel.Dock="Right"
+                            Content="🗑"
+                            FontSize="13"
+                            Padding="8,4"
+                            VerticalAlignment="Center"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Command="{Binding DeleteCommand}" />
+                    <StackPanel Spacing="2" VerticalAlignment="Center">
+                      <TextBlock Text="{Binding Model.Id}"
+                                 FontWeight="SemiBold"
+                                 FontSize="13" />
+                      <TextBlock Text="{Binding SizeDisplay}"
+                                 Opacity="0.6"
+                                 FontSize="12" />
+                    </StackPanel>
+                  </DockPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
 
         </StackPanel>
       </ScrollViewer>
