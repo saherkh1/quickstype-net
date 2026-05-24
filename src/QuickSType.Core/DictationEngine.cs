@@ -14,6 +14,7 @@ namespace QuickSType.Core;
 public enum DictationState
 {
     Idle,
+    LoadingModel,   // model swap in progress; HUD visible; hotkey release cancels
     Recording,
     Streaming,
     Processing,
@@ -103,6 +104,26 @@ public sealed class DictationEngine : IDisposable
         return _specs.IsStreamingCapable() ? "streaming" : "commit-on-pause";
     }
 
+    /// <summary>
+    /// Resolves the Whisper model ID to use for the current dictation.
+    /// D-09: lazy — called at dictation start, not in advance.
+    /// D-12: AutoLanguage bypasses per-language map entirely.
+    /// T-08-04: validates the assigned id against the catalog to prevent path traversal / stale-config crash.
+    /// </summary>
+    internal static string ResolveModelId(AppConfig cfg)
+    {
+        // D-12: AutoLanguage = global model, no per-language map
+        if (cfg.AutoLanguage) return cfg.Model;
+
+        if (cfg.LanguageModels.TryGetValue(cfg.ActiveLanguage, out var langModel)
+            && !string.IsNullOrEmpty(langModel)
+            && ModelCatalog.Find(langModel) is not null)   // T-08-04: validate against catalog
+        {
+            return langModel;
+        }
+        return cfg.Model;   // fallback to global
+    }
+
     internal AppConfig ApplyLayoutLanguageHint(AppConfig cfg)
     {
         if (!cfg.KeyboardLayoutDriven || _keyboardLayout is null) return cfg;
@@ -154,6 +175,13 @@ public sealed class DictationEngine : IDisposable
 
     public void OnHotkeyReleased()
     {
+        // D-11: hotkey release during model load cancels via WaitAsync(ct) path and returns to Idle
+        if (_state == DictationState.LoadingModel)
+        {
+            _cts?.Cancel();
+            return;
+        }
+
         if (_state == DictationState.Streaming)
         {
             // B3: complete channel via _audio.Stop() — NOT _cts.Cancel()
@@ -309,7 +337,8 @@ public sealed class DictationEngine : IDisposable
                 return;
             }
 
-            var modelPath = ModelCatalog.PathFor(_config.Model);
+            var modelId = ResolveModelId(_config);
+            var modelPath = ModelCatalog.PathFor(modelId);
             if (!File.Exists(modelPath))
             {
                 _log.LogError("Model not installed: {Path}", modelPath);
@@ -319,7 +348,15 @@ public sealed class DictationEngine : IDisposable
             }
 
             var useGpu = _config.TranscriptionBackend != "cpu";
-            _transcriber.EnsureLoaded(modelPath, useGpu);
+            if (_transcriber.LoadedModelPath != modelPath)
+            {
+                SetState(DictationState.LoadingModel);
+                // D-11: WaitAsync(ct) unblocks the awaiter when hotkey is released → OperationCanceledException
+                // → finally block → SetState(Idle). The background Task.Run continues (mmap is idempotent).
+                // CRITICAL: Use Task.Run(...).WaitAsync(ct) — NOT Task.Run(..., ct).
+                // The CancellationToken overload of Task.Run only cancels scheduling, not the running sync work.
+                await Task.Run(() => _transcriber.EnsureLoaded(modelPath, useGpu)).WaitAsync(ct);
+            }
 
             var text = await _transcriber.TranscribeAsync(samples, _audio.SampleRate, _config, ct);
             if (string.IsNullOrWhiteSpace(text))

@@ -144,14 +144,15 @@ public class DictationEngineModelResolutionTests
 
         // (1) The file contains a LoadingModel guard in OnHotkeyReleased that calls _cts?.Cancel()
         source.ShouldContain("DictationState.LoadingModel");
+        // _cts?.Cancel() appears in the LoadingModel guard in OnHotkeyReleased
         source.ShouldContain("_cts?.Cancel()");
 
-        // (2) The file contains WaitAsync(ct) which unblocks the awaiter on cancellation
-        source.ShouldContain("WaitAsync(ct)");
+        // (2) The file contains .WaitAsync(ct) on a Task.Run call (the correct cancellation idiom)
+        source.ShouldContain(".WaitAsync(ct)");
 
-        // (3) SetState(DictationState.LoadingModel) must appear before WaitAsync(ct)
+        // (3) SetState(DictationState.LoadingModel) must appear before the .WaitAsync(ct) on Task.Run
         var loadingModelIdx = source.IndexOf("SetState(DictationState.LoadingModel)", StringComparison.Ordinal);
-        var waitAsyncIdx = source.IndexOf("WaitAsync(ct)", StringComparison.Ordinal);
+        var waitAsyncIdx = source.IndexOf(").WaitAsync(ct)", StringComparison.Ordinal);
         (loadingModelIdx >= 0).ShouldBeTrue();
         (waitAsyncIdx > loadingModelIdx).ShouldBeTrue();
     }
