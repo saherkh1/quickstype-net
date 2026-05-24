@@ -87,11 +87,21 @@ public sealed partial class LanguageModelFlyoutViewModel : ObservableObject
         }
     }
 
+    internal Action? CloseRequested;
+
+    [RelayCommand]
+    private void Cancel()
+    {
+        DownloadCommand.Cancel();
+        CloseRequested?.Invoke();
+    }
+
     [RelayCommand]
     private void SaveAssignment()
     {
         var modelId = string.IsNullOrEmpty(SelectedModelId) ? null : SelectedModelId;
         _host.UpdateConfig(_host.Config.WithLanguageModel(LangCode, modelId));
         _log.LogInformation("Saved language model assignment: {LangCode} -> {ModelId}", LangCode, modelId ?? "(global)");
+        CloseRequested?.Invoke();
     }
 }

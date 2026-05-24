@@ -16,6 +16,8 @@ public partial class LanguageModelFlyoutWindow : Window
     public LanguageModelFlyoutWindow(string langCode, AppHost host) : this()
     {
         DataContext = new LanguageModelFlyoutViewModel(langCode, host);
+        var vm = (LanguageModelFlyoutViewModel)DataContext;
+        vm.CloseRequested = Close;
     }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
