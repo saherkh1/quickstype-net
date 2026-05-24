@@ -18,6 +18,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 {
     private readonly AppHost _host;
     private readonly ILogger _log;
+    private Avalonia.Controls.Window? _ownerWindow;
     private bool _suppressLanguageSync;
     private bool _suppressTelemetrySync;
     private bool _suppressStreamingInsertionSync;
@@ -65,6 +66,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         new("streaming", "Live transcription"),
         new("commit-on-pause", "After release only"),
     };
+
+    public void SetOwnerWindow(Avalonia.Controls.Window owner) => _ownerWindow = owner;
 
     public SettingsViewModel(AppHost host)
     {
@@ -499,14 +502,9 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     private async Task OpenLanguageModelPickerAsync(string langCode)
     {
-        var owner = (Avalonia.Application.Current?.ApplicationLifetime
-            as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)
-            ?.MainWindow;
-        if (owner is null) return;
-
+        if (_ownerWindow is null) return;
         var flyout = new Views.LanguageModelFlyoutWindow(langCode, _host);
-        await flyout.ShowDialog(owner);
-        // Config change events handle propagation via OnConfigChanged — no additional refresh needed.
+        await flyout.ShowDialog(_ownerWindow);
     }
 
     private void Save(Func<AppConfig, AppConfig> update)

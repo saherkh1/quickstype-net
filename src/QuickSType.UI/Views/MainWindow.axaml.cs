@@ -23,7 +23,9 @@ public partial class MainWindow : Window
     public MainWindow(AppHost host, ILogger<MainWindow>? log = null) : this()
     {
         _log = (ILogger?)log ?? NullLogger.Instance;
-        DataContext = new SettingsViewModel(host);
+        var vm = new SettingsViewModel(host);
+        vm.SetOwnerWindow(this);
+        DataContext = vm;
         WireButtons();
     }
 
