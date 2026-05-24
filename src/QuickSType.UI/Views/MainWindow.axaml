@@ -224,24 +224,61 @@
             </StackPanel>
           </Border>
 
-          <ComboBox ItemsSource="{Binding AvailableModels}"
-                    SelectedValue="{Binding SelectedModel}"
-                    SelectedValueBinding="{Binding Model.Id}"
-                    HorizontalAlignment="Stretch">
-            <ComboBox.ItemTemplate>
+          <ListBox ItemsSource="{Binding AvailableModels}"
+                   SelectedValue="{Binding SelectedModel}"
+                   SelectedValueBinding="{Binding Model.Id}"
+                   MaxHeight="380"
+                   HorizontalAlignment="Stretch">
+            <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:ModelRowViewModel">
-                <StackPanel>
-                  <TextBlock Text="{Binding Model.DisplayName}" FontWeight="SemiBold" />
-                  <TextBlock Text="{Binding Model.Description}" Opacity="0.7" FontSize="12" />
-                  <TextBlock Text="{Binding HardwareWarning}"
-                             FontSize="12"
-                             Foreground="#D9822B"
-                             IsVisible="{Binding HardwareWarning,
-                                         Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                </StackPanel>
+                <DockPanel Margin="2,4" LastChildFill="True">
+
+                  <!-- right-side badges -->
+                  <StackPanel DockPanel.Dock="Right"
+                              Orientation="Horizontal"
+                              Spacing="6"
+                              VerticalAlignment="Top"
+                              Margin="8,2,0,0">
+                    <!-- language tag -->
+                    <Border Background="#3A6EA8"
+                            CornerRadius="4"
+                            Padding="5,2"
+                            IsVisible="{Binding IsLanguageSpecific}">
+                      <TextBlock Text="{Binding LanguageTag}"
+                                 Foreground="White"
+                                 FontSize="10"
+                                 FontWeight="SemiBold" />
+                    </Border>
+                    <!-- downloaded badge -->
+                    <Border Background="#2E7D32"
+                            CornerRadius="4"
+                            Padding="5,2"
+                            IsVisible="{Binding IsInstalled}">
+                      <TextBlock Text="✓ downloaded"
+                                 Foreground="White"
+                                 FontSize="10"
+                                 FontWeight="SemiBold" />
+                    </Border>
+                  </StackPanel>
+
+                  <!-- model info -->
+                  <StackPanel Spacing="2">
+                    <TextBlock Text="{Binding Model.DisplayName}" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding Model.Description}"
+                               Opacity="0.7"
+                               FontSize="12"
+                               TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding HardwareWarning}"
+                               FontSize="12"
+                               Foreground="#D9822B"
+                               IsVisible="{Binding HardwareWarning,
+                                           Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                  </StackPanel>
+
+                </DockPanel>
               </DataTemplate>
-            </ComboBox.ItemTemplate>
-          </ComboBox>
+            </ListBox.ItemTemplate>
+          </ListBox>
 
           <StackPanel Orientation="Horizontal" Spacing="12">
             <Button Content="Save selection" Command="{Binding SaveModelCommand}" />

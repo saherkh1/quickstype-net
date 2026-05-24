@@ -107,7 +107,6 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         AvailableModels = new ObservableCollection<ModelRowViewModel>(
             ModelCatalog.All
-                .Where(m => m.LanguageCode is null)
                 .Select(m => new ModelRowViewModel(m, host.SystemSpecs, host.SystemSpecsService)));
 
         _hotkeyDisplay = HotkeyService.Format(HotkeyService.ParseKey(c.Hotkey));
@@ -267,6 +266,8 @@ public sealed partial class SettingsViewModel : ObservableObject
 
             ModelDownloadStatus = $"{model.DisplayName} ready.";
             _ = AutoClearStatusAsync($"{model.DisplayName} ready.", TimeSpan.FromSeconds(5));
+            foreach (var row in AvailableModels)
+                row.RefreshInstallStatus();
         }
         catch (Exception ex)
         {
