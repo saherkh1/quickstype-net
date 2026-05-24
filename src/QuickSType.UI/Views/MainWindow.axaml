@@ -182,13 +182,22 @@
           <ItemsControl ItemsSource="{Binding AvailableLanguages}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:LanguageRow">
-                <CheckBox IsChecked="{Binding IsEnabled}"
-                          Margin="0,3"
-                          HorizontalAlignment="Stretch">
-                  <TextBlock Text="{Binding Label}"
-                             TextWrapping="Wrap"
-                             MaxWidth="500" />
-                </CheckBox>
+                <DockPanel Margin="0,3" LastChildFill="False">
+                  <Button DockPanel.Dock="Right"
+                          Content="⚙"
+                          FontSize="14"
+                          Padding="6,2"
+                          VerticalAlignment="Center"
+                          Command="{Binding OpenModelPickerCommand}"
+                          IsVisible="{Binding IsEnabled}" />
+                  <CheckBox IsChecked="{Binding IsEnabled}"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Label}"
+                               TextWrapping="Wrap"
+                               MaxWidth="460" />
+                  </CheckBox>
+                </DockPanel>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
