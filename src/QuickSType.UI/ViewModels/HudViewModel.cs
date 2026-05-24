@@ -7,9 +7,10 @@ namespace QuickSType.UI.ViewModels;
 
 public sealed partial class HudViewModel : ObservableObject
 {
-    [ObservableProperty] private bool _isActive;       // true when Recording or Streaming
+    [ObservableProperty] private bool _isActive;       // true when Recording, Streaming, or LoadingModel
     [ObservableProperty] private bool _isRecording;    // true only when Recording (for blink animation)
     [ObservableProperty] private bool _isStreaming;    // true only when Streaming (for accent dot)
+    [ObservableProperty] private bool _isLoadingModel; // true only when LoadingModel (model swap in progress)
     [ObservableProperty] private string _elapsedText = "0:00";
     [ObservableProperty] private string _transcriptPreview = string.Empty;
     [ObservableProperty] private bool _isVibrancyEnabled;
@@ -26,9 +27,10 @@ public sealed partial class HudViewModel : ObservableObject
 
     public void OnStateChanged(DictationState state)
     {
-        IsActive = state is DictationState.Recording or DictationState.Streaming;
+        IsActive = state is DictationState.Recording or DictationState.Streaming or DictationState.LoadingModel;
         IsRecording = state == DictationState.Recording;
         IsStreaming = state == DictationState.Streaming;
+        IsLoadingModel = state == DictationState.LoadingModel;
 
         if (IsActive && !_elapsedTimer.IsEnabled)
         {
