@@ -35,7 +35,12 @@
     "ggml-large-v3-turbo-q5_0": {
       "sha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
       "size_bytes": 574041195,
-      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3-turbo-q5_0.bin"
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/c81b2dabbc45484dee2ca6658cfe39c841df5c70/ggml-large-v3-turbo-q5_0.bin"
+    },
+    "ggml-medium-he": {
+      "sha256": "3d7881b4c606604e1b1f8695de0f41e48e7542ce4e7f6ef433a7040a985e0b96",
+      "size_bytes": 1533763059,
+      "url": "https://huggingface.co/imvladikon/whisper-medium-he/resolve/241e89a758b512be3e5bae44dc93c2dc34873b81/ggml-hebrew.bin"
     }
   }
 }

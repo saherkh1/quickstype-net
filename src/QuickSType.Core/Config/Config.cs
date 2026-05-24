@@ -64,6 +64,9 @@ public sealed record AppConfig
     [JsonPropertyName("enable_background_update_checks")]
     public bool EnableBackgroundUpdateChecks { get; init; } = true;
 
+    [JsonPropertyName("language_models")]
+    public Dictionary<string, string> LanguageModels { get; init; } = new();
+
     public AppConfig WithLanguage(string lang)
     {
         var normalised = (lang ?? string.Empty).Trim().ToLowerInvariant();
@@ -116,4 +119,18 @@ public sealed record AppConfig
     /// Pass null to clear (e.g., to force the first-run flow on next launch — uncommon, normally only set forward).
     /// </summary>
     public AppConfig WithPreferredModel(string? modelId) => this with { PreferredModel = modelId };
+
+    /// <summary>
+    /// Returns a copy of this config with the specified language mapped to <paramref name="modelId"/>.
+    /// Pass null modelId to remove the language-specific mapping (fall back to global model).
+    /// </summary>
+    public AppConfig WithLanguageModel(string langCode, string? modelId)
+    {
+        var next = new Dictionary<string, string>(LanguageModels, StringComparer.OrdinalIgnoreCase);
+        if (modelId is null)
+            next.Remove(langCode);
+        else
+            next[langCode] = modelId;
+        return this with { LanguageModels = next };
+    }
 }

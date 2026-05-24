@@ -103,7 +103,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
 
         AvailableModels = new ObservableCollection<ModelRowViewModel>(
-            ModelCatalog.All.Select(m => new ModelRowViewModel(m, host.SystemSpecs, host.SystemSpecsService)));
+            ModelCatalog.All
+                .Where(m => m.LanguageCode is null)
+                .Select(m => new ModelRowViewModel(m, host.SystemSpecs, host.SystemSpecsService)));
 
         _hotkeyDisplay = HotkeyService.Format(HotkeyService.ParseKey(c.Hotkey));
         _autoLanguage = c.AutoLanguage;
