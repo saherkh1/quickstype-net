@@ -121,7 +121,7 @@ DictationEngine.OnHotkeyPressed()
      [existing path]              │
                                   ▼
                            await Task.Run(() =>
-                             _transcriber.EnsureLoaded(modelPath, useGpu), ct)
+                             _transcriber.EnsureLoaded(modelPath, useGpu)).WaitAsync(ct)
                                   │
                            hotkey released during load?
                                   │
@@ -253,7 +253,8 @@ internal string ResolveModelId(AppConfig cfg)
 {
     if (!cfg.AutoLanguage
         && cfg.LanguageModels.TryGetValue(cfg.ActiveLanguage, out var langModel)
-        && !string.IsNullOrEmpty(langModel))
+        && !string.IsNullOrEmpty(langModel)
+        && ModelCatalog.Find(langModel) is not null)  // path-traversal guard: unknown IDs fall through
     {
         return langModel;
     }
@@ -279,8 +280,8 @@ For the `LoadingModel` state (D-10), the lazy-load path requires:
 if (_transcriber.LoadedModelPath != modelPath)
 {
     SetState(DictationState.LoadingModel);
-    await Task.Run(() => _transcriber.EnsureLoaded(modelPath, useGpu), ct);
-    // D-11: if hotkey released during load, ct is cancelled → OperationCanceledException → finally → Idle
+    await Task.Run(() => _transcriber.EnsureLoaded(modelPath, useGpu)).WaitAsync(ct);
+    // D-11: if hotkey released during load, ct fires → WaitAsync throws OperationCanceledException → finally → Idle
 }
 ```
 
@@ -528,22 +529,17 @@ Note: The pinned commit hash `241e89a758b512be3e5bae44dc93c2dc34873b81` was obse
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **SHA-256 for ggml-medium-he**
-   - What we know: The file URL is confirmed reachable (`HTTP 302` to S3 presigned URL); file size confirmed at `1,533,763,059 bytes`.
-   - What's unclear: The exact SHA-256 hash. Cannot be computed without downloading the ~1.5 GB file.
-   - Recommendation: Plan 08-02 must include an explicit task: "Download `ggml-hebrew.bin`, compute SHA-256 (`shasum -a 256`), add entry to `models/manifest.json`." This is a blocking step before the download path can be tested.
+1. **SHA-256 for ggml-medium-he — RESOLVED via Plan 08-02 blocking human checkpoint**
+   - What we know: URL confirmed reachable (`HTTP 302`); file size confirmed at `1,533,763,059 bytes`; pinned commit `241e89a758b512be3e5bae44dc93c2dc34873b81` confirmed in `x-repo-commit` header (2026-05-24).
+   - Resolution: Plan 08-02 Task 1 is a `checkpoint:human-verify` that requires the executor to download the file, compute `shasum -a 256`, and provide the hash before Task 2 adds the manifest.json entry. This is the correct and planned approach — the hash cannot be pre-computed without a 1.5 GB download.
 
-2. **`DictationState.LoadingModel` vs. reusing `DictationState.Processing`**
-   - What we know: `DictationState.Processing` is currently used only after hotkey release (transcribing captured audio). `HudWindow.OnStateChanged` handles `Processing` state identically to non-active states (HUD hides).
-   - What's unclear: Whether the HUD should be visible during `LoadingModel` (D-10 says yes). Using `Processing` would reuse the existing state but change its meaning.
-   - Recommendation: Add `LoadingModel` as a new enum value. This is explicit, avoids semantic collision, and `HudViewModel.OnStateChanged` only needs one new case. The HUD stays visible (spinner / amber dot) while loading.
+2. **`DictationState.LoadingModel` vs. reusing `DictationState.Processing` — RESOLVED: add new enum value**
+   - Resolution: Add `LoadingModel` as a new `DictationState` enum value (see Architecture Patterns). Explicit, avoids semantic collision with `Processing` (which is post-release, HUD-hidden). `HudViewModel.OnStateChanged` handles it as an active state with a visually distinct indicator (amber REC dot + "Loading model…" text). Per CONTEXT.md Claude's Discretion.
 
-3. **Avalonia Popup vs. Window for the flyout**
-   - What we know: The codebase has zero existing `Popup` or `FlyoutBase` usage. The only dialog pattern is `BlockerDialogWindow` — a plain `Window` shown via code-behind. The `SettingsViewModel` does not hold a `Window` reference directly.
-   - What's unclear: Whether `Window.ShowDialog(owner)` works cleanly when called from a `RelayCommand` that runs on the UI thread inside a `Window` that itself opened from a tray icon.
-   - Recommendation: Use `Window.ShowDialog`. Pass the `MainWindow` reference into `SettingsViewModel` via constructor or retrieve it from `Application.Current.ApplicationLifetime` at command time. This mirrors the `BlockerDialogWindow` pattern exactly.
+3. **Avalonia Popup vs. Window for the flyout — RESOLVED: use `Window.ShowDialog`**
+   - Resolution: Use a plain Avalonia `Window` shown via `ShowDialog(owner)`, mirroring `BlockerDialogWindow`. No existing `Popup`/`FlyoutBase` precedent in the codebase. `MainWindow` reference retrieved at command time via `Application.Current.ApplicationLifetime`. Per CONTEXT.md Claude's Discretion.
 
 ---
 
