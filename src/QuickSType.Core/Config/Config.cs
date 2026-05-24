@@ -32,7 +32,7 @@ public sealed record AppConfig
     public bool ShowNotifications { get; init; } = true;
 
     [JsonPropertyName("schema_version")]
-    public int SchemaVersion { get; init; } = 3;
+    public int SchemaVersion { get; init; } = 4;
 
     [JsonPropertyName("enable_crash_telemetry")]
     public bool EnableCrashTelemetry { get; init; } = false;

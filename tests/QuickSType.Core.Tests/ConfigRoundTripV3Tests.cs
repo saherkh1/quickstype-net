@@ -83,10 +83,10 @@ public class ConfigRoundTripV3Tests
     }
 
     [Fact]
-    public void New_AppConfig_default_SchemaVersion_is_3()
+    public void New_AppConfig_default_SchemaVersion_is_4()
     {
-        // Pitfall 4: prevents re-migration on every launch
-        new AppConfig().SchemaVersion.ShouldBe(3);
+        // SchemaVersion default is 4 after Phase 8 — new installs skip migration on second launch
+        new AppConfig().SchemaVersion.ShouldBe(4);
     }
 
     [Fact]

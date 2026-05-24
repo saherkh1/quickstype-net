@@ -67,6 +67,7 @@
       <StackPanel Orientation="Horizontal" Spacing="8">
         <RadioButton Content="Use global model"
                      GroupName="ModelChoice"
+                     Command="{Binding SelectGlobalModelCommand}"
                      IsChecked="{Binding SelectedModelId,
                                  Converter={x:Static StringConverters.IsNullOrEmpty}}" />
         <TextBlock Text="{Binding GlobalModelId, StringFormat='({0})'}"

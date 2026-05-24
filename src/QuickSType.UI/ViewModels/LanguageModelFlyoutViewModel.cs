@@ -50,6 +50,9 @@ public sealed partial class LanguageModelFlyoutViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void SelectGlobalModel() => SelectedModelId = string.Empty;
+
+    [RelayCommand]
     private async Task Download(CancellationToken ct)
     {
         var model = ModelCatalog.Find(SelectedModelId);

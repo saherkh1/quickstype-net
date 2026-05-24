@@ -40,7 +40,7 @@
                Fill="#FF3B30"
                VerticalAlignment="Bottom"
                Margin="8,0,0,4"
-               IsVisible="{Binding IsActive}" />
+               IsVisible="{Binding IsRecording}" />
 
       <!-- Loading dot (amber) - shown when swapping model (LoadingModel state) -->
       <Ellipse x:Name="LoadingDot"
