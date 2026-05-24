@@ -128,7 +128,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         AvailableLanguages = new ObservableCollection<LanguageRow>(
             Languages.Common.Select(l => new LanguageRow(
                 l.Code, l.DisplayName, l.NativeName,
-                isEnabled: c.Languages.Contains(l.Code, StringComparer.OrdinalIgnoreCase))));
+                isEnabled: c.Languages.Contains(l.Code, StringComparer.OrdinalIgnoreCase),
+                openModelPicker: () => OpenLanguageModelPickerAsync(l.Code))));
 
         foreach (var row in AvailableLanguages)
             row.PropertyChanged += OnLanguageRowChanged;
@@ -496,6 +497,18 @@ public sealed partial class SettingsViewModel : ObservableObject
         PermissionBannerText = _postUpdateSelfCheckResult.Message ?? string.Empty;
     }
 
+    private async Task OpenLanguageModelPickerAsync(string langCode)
+    {
+        var owner = (Avalonia.Application.Current?.ApplicationLifetime
+            as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)
+            ?.MainWindow;
+        if (owner is null) return;
+
+        var flyout = new Views.LanguageModelFlyoutWindow(langCode, _host);
+        await flyout.ShowDialog(owner);
+        // Config change events handle propagation via OnConfigChanged — no additional refresh needed.
+    }
+
     private void Save(Func<AppConfig, AppConfig> update)
     {
         var newCfg = update(_host.Config);
@@ -513,13 +526,25 @@ public sealed partial class LanguageRow : ObservableObject
 
     [ObservableProperty] private bool _isEnabled;
 
+    // Injected factory — opens the per-language model picker flyout
+    private readonly Func<Task>? _openModelPicker;
+
     public string Label => $"{NativeName}  ({DisplayName})";
 
-    public LanguageRow(string code, string displayName, string nativeName, bool isEnabled)
+    public LanguageRow(string code, string displayName, string nativeName, bool isEnabled,
+        Func<Task>? openModelPicker = null)
     {
         Code = code;
         DisplayName = displayName;
         NativeName = nativeName;
         IsEnabled = isEnabled;
+        _openModelPicker = openModelPicker;
+    }
+
+    [RelayCommand]
+    private async Task OpenModelPicker()
+    {
+        if (_openModelPicker is not null)
+            await _openModelPicker();
     }
 }
