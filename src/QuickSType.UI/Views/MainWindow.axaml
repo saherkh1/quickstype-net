@@ -329,7 +329,7 @@
                     SelectedValue="{Binding SelectedModel}"
                     SelectedValueBinding="{Binding Model.Id}"
                     HorizontalAlignment="Stretch"
-                    Margin="0,0,0,8">
+                    Margin="0,0,0,6">
             <ComboBox.ItemTemplate>
               <DataTemplate x:DataType="vm:ModelRowViewModel">
                 <StackPanel Spacing="2">
@@ -344,13 +344,11 @@
               </DataTemplate>
             </ComboBox.ItemTemplate>
           </ComboBox>
-
-          <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,0,0,6">
-            <Button Content="Save selection" Command="{Binding SaveModelCommand}" />
-            <Button Content="Download" Command="{Binding DownloadSelectedModelCommand}" Classes="accent" />
-          </StackPanel>
-          <ProgressBar Value="{Binding ModelDownloadPercent}" Maximum="100" Height="6" Margin="0,0,0,2" />
-          <TextBlock Text="{Binding ModelDownloadStatus}" FontSize="11" Opacity="0.7" Margin="0,0,0,20" />
+          <ProgressBar Value="{Binding ModelDownloadPercent}" Maximum="100" Height="4" Margin="0,4,0,2"
+                       IsVisible="{Binding IsDownloadingGeneralModel}" />
+          <TextBlock Text="{Binding ModelDownloadStatus}" FontSize="11" Opacity="0.7" Margin="0,0,0,16"
+                     IsVisible="{Binding ModelDownloadStatus,
+                                 Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
 
           <!-- ── SECTION: Per-language model rows ──────────────── -->
           <ItemsControl ItemsSource="{Binding LanguageModelRows}">

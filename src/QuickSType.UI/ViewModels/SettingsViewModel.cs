@@ -39,6 +39,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _testTranscriptionResult = string.Empty;
     [ObservableProperty] private double _modelDownloadPercent;
     [ObservableProperty] private string _modelDownloadStatus = string.Empty;
+    [ObservableProperty] private bool _isDownloadingGeneralModel;
     [ObservableProperty] private bool _isFirstRun;
     [ObservableProperty] private string _firstRunBannerBody = string.Empty;
     [ObservableProperty] private string _firstRunBannerCaption = "You can change this any time in Settings.";
@@ -54,6 +55,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private UpdateCheckResult? _lastUpdateResult;
     private DateTimeOffset? _lastUpdateChecked;
     private PostUpdateSelfCheckResult _postUpdateSelfCheckResult = PostUpdateSelfCheckResult.None("unknown");
+    private CancellationTokenSource? _generalModelDownloadCts;
 
     public ObservableCollection<ModelRowViewModel> AvailableModels { get; }
     public ObservableCollection<PerLanguageModelRow> LanguageModelRows { get; }
@@ -97,7 +99,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             };
             _firstRunBannerBody =
                 $"We recommend {recommended.DisplayName} for your system ({tierLabel}). " +
-                $"It's pre-selected below. Click Download to fetch it (~{sizeMb} MB).";
+                $"It's pre-selected below — open the dropdown and select it to start downloading automatically (~{sizeMb} MB).";
 
             _log.LogInformation("First run: recommending {ModelId} for {Tier}",
                 recommended.Id, host.SystemSpecs.Tier);
@@ -240,15 +242,32 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
-    private void SaveModel() => Save(c => c with { Model = SelectedModel, PreferredModel = SelectedModel });
-
-    [RelayCommand]
-    private async Task DownloadSelectedModel(CancellationToken ct)
+    partial void OnSelectedModelChanged(string value)
     {
-        var model = ModelCatalog.Find(SelectedModel);
+        // Save selection immediately on any change.
+        Save(c => c with { Model = value, PreferredModel = value });
+
+        // Cancel any in-flight download for a previously selected model.
+        _generalModelDownloadCts?.Cancel();
+        _generalModelDownloadCts = null;
+
+        // Auto-download if the selected model is not yet on disk.
+        if (ModelCatalog.Find(value) is not null && !ModelCatalog.IsInstalled(value))
+            _ = StartGeneralModelDownloadAsync(value);
+    }
+
+    private async Task StartGeneralModelDownloadAsync(string modelId)
+    {
+        var model = ModelCatalog.Find(modelId);
         if (model is null) return;
+
+        var cts = new CancellationTokenSource();
+        _generalModelDownloadCts = cts;
+
+        IsDownloadingGeneralModel = true;
+        ModelDownloadPercent = 0;
         ModelDownloadStatus = "Starting download…";
+
         var progress = new Progress<ModelDownloader.Progress>(p =>
         {
             ModelDownloadPercent = p.Percent;
@@ -257,29 +276,36 @@ public sealed partial class SettingsViewModel : ObservableObject
             var speed = p.BytesPerSecond / 1_000_000.0;
             ModelDownloadStatus = $"Downloading… {p.Percent:F0}% ({mb:F1} / {totalMb:F1} MB, {speed:F1} MB/s)";
         });
+
         try
         {
-            await _host.ModelDownloader.DownloadAsync(model, progress, ct);
+            await _host.ModelDownloader.DownloadAsync(model, progress, cts.Token);
 
-            // ModelDownloader.DownloadAsync verifies SHA-256 internally (HARDEN-01).
-            // Show the verifying state cosmetically (it has already happened on the previous line).
             ModelDownloadStatus = "Verifying SHA-256…";
 
-            // D-02 + D-03: persist PreferredModel AND keep Model in sync, only after verify passes.
-            _host.UpdateConfig(_host.Config.WithPreferredModel(SelectedModel) with { Model = SelectedModel });
             if (IsFirstRun)
             {
                 IsFirstRun = false;
-                _log.LogInformation("PreferredModel set to {ModelId}; first-run flow complete", SelectedModel);
+                _log.LogInformation("PreferredModel set to {ModelId}; first-run flow complete", modelId);
             }
 
             ModelDownloadStatus = $"{model.DisplayName} ready.";
             _ = AutoClearStatusAsync($"{model.DisplayName} ready.", TimeSpan.FromSeconds(5));
             RefreshDownloadedModels();
         }
+        catch (OperationCanceledException)
+        {
+            ModelDownloadStatus = string.Empty;
+        }
         catch (Exception ex)
         {
             ModelDownloadStatus = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            IsDownloadingGeneralModel = false;
+            if (ReferenceEquals(_generalModelDownloadCts, cts))
+                _generalModelDownloadCts = null;
         }
     }
 
