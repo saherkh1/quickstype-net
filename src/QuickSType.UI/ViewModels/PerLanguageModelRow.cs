@@ -16,6 +16,7 @@ public sealed partial class PerLanguageModelRow : ObservableObject
 {
     private readonly AppHost _host;
     private bool _syncing;
+    private CancellationTokenSource? _downloadCts;
 
     public string LangCode { get; }
     public string DisplayName { get; }
@@ -61,6 +62,11 @@ public sealed partial class PerLanguageModelRow : ObservableObject
     partial void OnSelectedOptionChanged(LanguageModelOption value)
     {
         if (_syncing) return;
+
+        // Selection changed: cancel any in-flight download for the previous option.
+        _downloadCts?.Cancel();
+        _downloadCts = null;
+
         var modelId = string.IsNullOrEmpty(value.Id) ? null : value.Id;
         _host.UpdateConfig(_host.Config.WithLanguageModel(LangCode, modelId));
         if (!string.IsNullOrEmpty(value.Id) && !ModelCatalog.IsInstalled(value.Id))
@@ -69,8 +75,15 @@ public sealed partial class PerLanguageModelRow : ObservableObject
 
     private async Task StartDownloadAsync(string modelId)
     {
+        // Guard against rapid ComboBox toggles launching a second concurrent
+        // writer on the same .bin.part file.
+        if (IsDownloading) return;
+
         var model = ModelCatalog.Find(modelId);
         if (model is null) return;
+
+        var cts = new CancellationTokenSource();
+        _downloadCts = cts;
 
         IsDownloading = true;
         DownloadPercent = 0;
@@ -88,15 +101,20 @@ public sealed partial class PerLanguageModelRow : ObservableObject
         Exception? err = null;
         try
         {
-            await _host.ModelDownloader.DownloadAsync(model, progress);
+            await _host.ModelDownloader.DownloadAsync(model, progress, cts.Token);
         }
+        catch (OperationCanceledException) { /* user changed selection mid-download */ }
         catch (Exception ex) { err = ex; }
 
         // Marshal final state back to UI thread — can't await in finally
         Dispatcher.UIThread.Post(() =>
         {
             IsDownloading = false;
-            if (err is null)
+            if (cts.IsCancellationRequested)
+            {
+                DownloadStatus = string.Empty;
+            }
+            else if (err is null)
             {
                 DownloadStatus = $"{model.DisplayName} ready.";
                 DownloadCompleted?.Invoke();
@@ -105,6 +123,8 @@ public sealed partial class PerLanguageModelRow : ObservableObject
             {
                 DownloadStatus = $"Error: {err.Message}";
             }
+            if (ReferenceEquals(_downloadCts, cts))
+                _downloadCts = null;
         });
     }
 }
