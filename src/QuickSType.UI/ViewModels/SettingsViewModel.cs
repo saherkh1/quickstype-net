@@ -244,15 +244,18 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     partial void OnSelectedModelChanged(string value)
     {
-        // Save selection immediately on any change.
-        Save(c => c with { Model = value, PreferredModel = value });
-
         // Cancel any in-flight download for a previously selected model.
         _generalModelDownloadCts?.Cancel();
         _generalModelDownloadCts = null;
 
-        // Auto-download if the selected model is not yet on disk.
-        if (ModelCatalog.Find(value) is not null && !ModelCatalog.IsInstalled(value))
+        if (ModelCatalog.Find(value) is null) return;
+
+        // If the model is already installed, persist immediately. Otherwise defer the
+        // Save until after DownloadAsync + verify succeed, so a failed download can't
+        // leave the config pointing at an uninstalled model.
+        if (ModelCatalog.IsInstalled(value))
+            Save(c => c with { Model = value, PreferredModel = value });
+        else
             _ = StartGeneralModelDownloadAsync(value);
     }
 
@@ -282,6 +285,11 @@ public sealed partial class SettingsViewModel : ObservableObject
             await _host.ModelDownloader.DownloadAsync(model, progress, cts.Token);
 
             ModelDownloadStatus = "Verifying SHA-256…";
+
+            // Only persist the model selection after the download + verify succeed.
+            // If we saved earlier and the download fails, the config would point at
+            // an uninstalled model.
+            Save(c => c with { Model = modelId, PreferredModel = modelId });
 
             if (IsFirstRun)
             {
