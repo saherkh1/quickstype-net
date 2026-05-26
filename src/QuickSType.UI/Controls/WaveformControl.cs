@@ -17,6 +17,15 @@ public sealed class WaveformControl : Control
     private float _incomingLevel;
     private readonly object _levelLock = new();
 
+    public static readonly StyledProperty<bool> IsActiveProperty =
+        AvaloniaProperty.Register<WaveformControl, bool>(nameof(IsActive));
+
+    public bool IsActive
+    {
+        get => GetValue(IsActiveProperty);
+        set => SetValue(IsActiveProperty, value);
+    }
+
     // Pre-allocated brushes — never new on render tick
     private SolidColorBrush _fillBrush = new(Colors.Gray);
 

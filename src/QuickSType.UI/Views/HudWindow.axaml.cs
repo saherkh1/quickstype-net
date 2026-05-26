@@ -8,6 +8,8 @@ using Avalonia.Threading;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using QuickSType.Core;
+using QuickSType.Core.Audio;
+using QuickSType.UI.Controls;
 using QuickSType.UI.ViewModels;
 
 namespace QuickSType.UI.Views;
@@ -17,6 +19,8 @@ public partial class HudWindow : Window
     private readonly ILogger _log;
     private DispatcherTimer? _blinkTimer;
     private bool _blinkState;
+    private IAudioCapture? _attachedAudio;
+    private WaveformControl? _waveform;
 
     public HudWindow()
     {
@@ -35,6 +39,46 @@ public partial class HudWindow : Window
     {
         base.OnOpened(e);
         ApplyClickThrough();
+        // Cache the WaveformControl once to avoid per-tick visual-tree walks in the audio handler.
+        _waveform ??= this.FindControl<WaveformControl>("Waveform");
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        // Unsubscribe to avoid leaking the window through the audio service's event list.
+        if (_attachedAudio is not null)
+        {
+            _attachedAudio.LevelChanged -= OnAudioLevel;
+            _attachedAudio = null;
+        }
+        base.OnClosed(e);
+    }
+
+    /// <summary>
+    /// Subscribe this HUD to live RMS levels from <paramref name="audio"/>. Idempotent: a
+    /// second call with the same instance is a no-op; a second call with a different
+    /// instance unsubscribes the prior one first. Marshals to the UI dispatcher.
+    /// </summary>
+    public void AttachAudioLevels(IAudioCapture audio)
+    {
+        ArgumentNullException.ThrowIfNull(audio);
+        if (ReferenceEquals(_attachedAudio, audio)) return;
+
+        if (_attachedAudio is not null)
+            _attachedAudio.LevelChanged -= OnAudioLevel;
+
+        _attachedAudio = audio;
+        _attachedAudio.LevelChanged += OnAudioLevel;
+    }
+
+    private void OnAudioLevel(float level)
+    {
+        // Audio-callback thread -> UI thread, non-blocking Post (never .Invoke / never await).
+        Dispatcher.UIThread.Post(() =>
+        {
+            var wave = _waveform ??= this.FindControl<WaveformControl>("Waveform");
+            wave?.PushLevel(level);
+        });
     }
 
     [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "TryGetPlatformHandle is safe on desktop Avalonia targets; tested path")]
@@ -115,6 +159,18 @@ public partial class HudWindow : Window
             y = isWindows
                 ? trayRect.Top - hudH - 8   // Windows: rise above tray
                 : trayRect.Bottom + 8;       // macOS: drop below tray
+        }
+
+        // Clamp so the window stays fully on-screen (off-screen right causes macOS to
+        // cascade the window to the far left instead of clamping it).
+        var clampScreen = Screens.ScreenFromPoint(new PixelPoint(x, y)) ?? Screens.Primary;
+        if (clampScreen is not null)
+        {
+            var area = clampScreen.WorkingArea;
+            if (x + hudW > area.X + area.Width) x = area.X + area.Width - hudW;
+            if (x < area.X) x = area.X;
+            if (y + hudH > area.Y + area.Height) y = area.Y + area.Height - hudH;
+            if (y < area.Y) y = area.Y;
         }
 
         Position = new PixelPoint(x, y);

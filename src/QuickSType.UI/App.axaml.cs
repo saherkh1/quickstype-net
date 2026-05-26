@@ -83,6 +83,9 @@ public partial class App : Application
             // Apply initial vibrancy from config.
             _hudVm.UpdateVibrancy(Host.ResolveVibrancyEnabled());
 
+            // Wire real microphone RMS into the HUD waveform.
+            _hudWindow.AttachAudioLevels(Host.Audio);
+
             // Subscribe to DictationEngine state changes and marshal to UI thread.
             Host.Engine.StateChanged += state =>
             {

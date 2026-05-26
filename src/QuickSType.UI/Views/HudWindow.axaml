@@ -31,6 +31,7 @@
       <controls:WaveformControl x:Name="Waveform"
                                  Grid.Row="0" Grid.Column="0"
                                  BarColor="#FF3B30"
+                                 IsActive="{Binding IsRecording}"
                                  IsVisible="{Binding IsActive}" />
 
       <!-- REC dot - row 0, col 1 -->
