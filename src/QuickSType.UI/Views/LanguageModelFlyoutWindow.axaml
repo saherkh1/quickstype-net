@@ -5,11 +5,24 @@
         x:Class="QuickSType.UI.Views.LanguageModelFlyoutWindow"
         x:DataType="vm:LanguageModelFlyoutViewModel"
         Title="Model for this language"
-        Width="480"
-        SizeToContent="Height"
+        Width="480" Height="440"
         CanResize="False"
         SystemDecorations="Full"
+        Background="{DynamicResource AppWindowBg}"
         WindowStartupLocation="CenterOwner">
+
+  <Window.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="AppWindowBg" Color="#2A2A2A" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="AppWindowBg" Color="#F0F0F0" />
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
+  </Window.Resources>
 
   <Window.Styles>
     <Style Selector="TextBlock.h1">

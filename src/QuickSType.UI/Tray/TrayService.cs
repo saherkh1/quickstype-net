@@ -321,13 +321,20 @@ public sealed class TrayService
     {
         Dispatcher.UIThread.Post(() =>
         {
+            var trayRect = _host.TrayPosition.GetTrayRect();
+
             if (_mainWindow is null)
             {
                 _mainWindow = new MainWindow(_host, _host.LoggerFactory.CreateLogger<MainWindow>());
                 _mainWindow.Closed += (_, _) => _mainWindow = null;
             }
 
-            if (!_mainWindow.IsVisible) _mainWindow.Show();
+            if (!_mainWindow.IsVisible)
+            {
+                _mainWindow.PositionNearTray(trayRect);
+                _mainWindow.Show();
+            }
+
             if (_mainWindow.WindowState == WindowState.Minimized) _mainWindow.WindowState = WindowState.Normal;
             _mainWindow.NavigateTo(tab);
 
