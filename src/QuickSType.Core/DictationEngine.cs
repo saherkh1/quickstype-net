@@ -354,11 +354,12 @@ public sealed class DictationEngine : IDisposable
             if (_transcriber.LoadedModelPath != modelPath)
             {
                 SetState(DictationState.LoadingModel);
-                // D-11: WaitAsync(ct) unblocks the awaiter when hotkey is released → OperationCanceledException
-                // → finally block → SetState(Idle). The background Task.Run continues (mmap is idempotent).
-                // CRITICAL: Use Task.Run(...).WaitAsync(ct) — NOT Task.Run(..., ct).
-                // The CancellationToken overload of Task.Run only cancels scheduling, not the running sync work.
-                await Task.Run(() => _transcriber.EnsureLoaded(modelPath, useGpu)).WaitAsync(ct);
+                // D-11: pass ct into EnsureLoaded so cancellation is cooperative — the
+                // ThrowIfCancellationRequested checks inside the lock terminate the task
+                // before the next call proceeds. This avoids the race where the abandoned
+                // task (Task.Run + WaitAsync) could finish loading the wrong factory while
+                // a new press is already attempting to swap models.
+                await Task.Run(() => _transcriber.EnsureLoaded(modelPath, useGpu, ct), ct);
             }
 
             var text = await _transcriber.TranscribeAsync(samples, _audio.SampleRate, _config, ct);

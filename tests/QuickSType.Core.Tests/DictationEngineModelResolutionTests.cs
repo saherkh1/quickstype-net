@@ -147,13 +147,15 @@ public class DictationEngineModelResolutionTests
         // _cts?.Cancel() appears in the LoadingModel guard in OnHotkeyReleased
         source.ShouldContain("_cts?.Cancel()");
 
-        // (2) The file contains .WaitAsync(ct) on a Task.Run call (the correct cancellation idiom)
-        source.ShouldContain(".WaitAsync(ct)");
+        // (2) The file passes ct cooperatively into EnsureLoaded (the new cancellation idiom).
+        // Task.Run(() => ..EnsureLoaded(.., ct), ct) — ct is propagated into the work, not
+        // abandoned via .WaitAsync(ct).
+        source.ShouldContain("_transcriber.EnsureLoaded(modelPath, useGpu, ct)");
 
-        // (3) SetState(DictationState.LoadingModel) must appear before the .WaitAsync(ct) on Task.Run
+        // (3) SetState(DictationState.LoadingModel) must appear before the EnsureLoaded call
         var loadingModelIdx = source.IndexOf("SetState(DictationState.LoadingModel)", StringComparison.Ordinal);
-        var waitAsyncIdx = source.IndexOf(").WaitAsync(ct)", StringComparison.Ordinal);
+        var ensureLoadedIdx = source.IndexOf("_transcriber.EnsureLoaded(modelPath, useGpu, ct)", StringComparison.Ordinal);
         (loadingModelIdx >= 0).ShouldBeTrue();
-        (waitAsyncIdx > loadingModelIdx).ShouldBeTrue();
+        (ensureLoadedIdx > loadingModelIdx).ShouldBeTrue();
     }
 }
