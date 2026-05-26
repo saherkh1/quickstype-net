@@ -234,6 +234,7 @@ public sealed class TrayService
                 _stateItem.Header = state switch
                 {
                     DictationState.Idle => "● Idle",
+                    DictationState.LoadingModel => "⏳ Loading model…",
                     DictationState.Recording => "● Recording…",
                     DictationState.Processing => "● Transcribing…",
                     DictationState.Streaming => "● Streaming…",
@@ -244,6 +245,7 @@ public sealed class TrayService
             {
                 _trayIcon.Icon = LoadIcon(state switch
                 {
+                    DictationState.LoadingModel => "recording",
                     DictationState.Recording => "recording",
                     DictationState.Processing => "processing",
                     DictationState.Streaming => "recording",
