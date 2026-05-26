@@ -74,6 +74,10 @@ public sealed partial class LanguageModelFlyoutViewModel : ObservableObject
             DownloadStatus = $"{model.DisplayName} ready.";
             _log.LogInformation("Language model {ModelId} downloaded for {LangCode}", model.Id, LangCode);
         }
+        catch (OperationCanceledException)
+        {
+            DownloadStatus = string.Empty;
+        }
         catch (Exception ex)
         {
             DownloadStatus = $"Error: {ex.Message}";
