@@ -190,9 +190,11 @@ public sealed class PortAudioCapture : IAudioCapture
             var level = AudioLevelCalculator.ComputeNormalisedRms(legacy);
             LevelChanged?.Invoke(level);
         }
-        catch
+        catch (Exception ex)
         {
-            // Swallow — never let a subscriber exception escape the audio callback.
+            // Never let a subscriber exception escape the audio callback. Log at Debug only —
+            // this fires per audio buffer (~16/sec), so Warning would spam.
+            _log.LogDebug(ex, "LevelChanged handler threw on audio thread");
         }
 
         // Rent a pooled buffer for the streaming channel.
