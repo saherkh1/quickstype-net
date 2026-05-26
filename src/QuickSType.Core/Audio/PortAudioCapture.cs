@@ -28,6 +28,9 @@ public sealed class PortAudioCapture : IAudioCapture
     public bool IsRecording => _isRecording;
     public ChannelReader<ReadOnlyMemory<float>>? Frames => _channel?.Reader;
 
+    /// <inheritdoc />
+    public event Action<float>? LevelChanged;
+
     public PortAudioCapture(ILogger<PortAudioCapture>? log = null, int sampleRate = 16000, int channels = 1)
     {
         _log = (ILogger?)log ?? NullLogger.Instance;
@@ -137,6 +140,11 @@ public sealed class PortAudioCapture : IAudioCapture
         }
 
         _channel = null;
+
+        // Flatten subscribers' visuals immediately on teardown.
+        try { LevelChanged?.Invoke(0f); }
+        catch (Exception ex) { _log.LogDebug(ex, "LevelChanged(0) on Stop threw"); }
+
         return DrainChunks();
     }
 
@@ -173,6 +181,19 @@ public sealed class PortAudioCapture : IAudioCapture
             for (int i = 0; i < totalSamples; i++) legacy[i] = src[i];
         }
         _chunks.Enqueue(legacy);
+
+        // Compute normalised RMS for this buffer and fan out to subscribers.
+        // Audio-thread discipline: must never throw, never block. No allocations in this path
+        // (legacy is the buffer we just filled; AudioLevelCalculator is allocation-free).
+        try
+        {
+            var level = AudioLevelCalculator.ComputeNormalisedRms(legacy);
+            LevelChanged?.Invoke(level);
+        }
+        catch
+        {
+            // Swallow — never let a subscriber exception escape the audio callback.
+        }
 
         // Rent a pooled buffer for the streaming channel.
         var rented = ArrayPool<float>.Shared.Rent(totalSamples);

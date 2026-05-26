@@ -118,6 +118,9 @@ public class FinalChunkPreservationTests
         }
         public IReadOnlyList<AudioDeviceInfo> ListInputDevices() => Array.Empty<AudioDeviceInfo>();
         public void SelectInputDevice(string? deviceName) { }
+#pragma warning disable CS0067
+        public event Action<float>? LevelChanged;
+#pragma warning restore CS0067
         public void Dispose() { }
     }
 
