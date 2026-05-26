@@ -99,15 +99,18 @@ public partial class App : Application
                     {
                         _hudVm.OnStateChanged(state);
 
-                        if (state is DictationState.Recording or DictationState.Streaming)
+                        if (state is DictationState.Recording or DictationState.Streaming or DictationState.LoadingModel)
                         {
+                            // LoadingModel runs while the user is still holding the hotkey
+                            // (model swap on press) — show the HUD so the amber loading-dot
+                            // affordance is visible.
                             var trayRect = Host.TrayPosition.GetTrayRect();
                             _hudWindow.PositionNearTray(trayRect);
                             if (!_hudWindow.IsVisible) _hudWindow.Show();
                         }
                         else
                         {
-                            // Processing / LoadingModel / Idle — user has released the hotkey.
+                            // Processing / Idle — user has released the hotkey.
                             // Hide synchronously so a re-press can immediately Show() a fresh HUD.
                             _hudWindow.Hide();
                         }
