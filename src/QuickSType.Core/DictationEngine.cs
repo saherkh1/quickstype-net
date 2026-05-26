@@ -175,9 +175,12 @@ public sealed class DictationEngine : IDisposable
 
     public void OnHotkeyReleased()
     {
-        // D-11: hotkey release during model load cancels via WaitAsync(ct) path and returns to Idle
+        // D-11: hotkey release during model load cancels via the ct path and returns to Idle.
+        // The mic was started in OnHotkeyPressed; stop it here so the next press can re-Start cleanly.
         if (_state == DictationState.LoadingModel)
         {
+            try { _audio.Stop(); }
+            catch (Exception ex) { _log.LogError(ex, "Stop on LoadingModel release threw"); }
             _cts?.Cancel();
             return;
         }
