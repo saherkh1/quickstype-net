@@ -1,4 +1,3 @@
-using System.Buffers;
 using System.Collections.Concurrent;
 using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
@@ -197,16 +196,9 @@ public sealed class PortAudioCapture : IAudioCapture
             _log.LogDebug(ex, "LevelChanged handler threw on audio thread");
         }
 
-        // Rent a pooled buffer for the streaming channel.
-        var rented = ArrayPool<float>.Shared.Rent(totalSamples);
-        legacy.CopyTo(rented, 0);
-        var slice = new ReadOnlyMemory<float>(rented, 0, totalSamples);
-        if (_channel is not null && !_channel.Writer.TryWrite(slice))
-        {
-            // TryWrite returns false when the channel is full (DropOldest handles oldest);
-            // still need to return the rented buffer since no consumer will own it.
-            ArrayPool<float>.Shared.Return(rented);
-        }
+        // The queued array is immutable after this point, so the streaming reader can
+        // observe the same buffer without an extra copy or ArrayPool ownership handoff.
+        _channel?.Writer.TryWrite(new ReadOnlyMemory<float>(legacy, 0, totalSamples));
 
         return StreamCallbackResult.Continue;
     }

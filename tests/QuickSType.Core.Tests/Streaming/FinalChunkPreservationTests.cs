@@ -22,10 +22,14 @@ public class FinalChunkPreservationTests
         var updates = new List<TranscriptUpdate>();
         engine.TranscriptUpdate += u => updates.Add(u);
         var idle = new TaskCompletionSource<bool>();
+        var streaming = new TaskCompletionSource<bool>();
         engine.StateChanged += s => { if (s == DictationState.Idle) idle.TrySetResult(true); };
+        engine.StateChanged += s => { if (s == DictationState.Streaming) streaming.TrySetResult(true); };
 
         engine.OnHotkeyPressed();
         engine.EffectiveMode.ShouldBe("streaming");
+        var streamingWinner = await Task.WhenAny(streaming.Task, Task.Delay(TimeSpan.FromSeconds(8)));
+        streamingWinner.ShouldBe(streaming.Task, "Engine did not enter Streaming");
 
         const int sampleRate = 16000;
         var batch = new float[(int)(0.7 * sampleRate)];
@@ -57,9 +61,13 @@ public class FinalChunkPreservationTests
             paste,
             injector);
         var idle = new TaskCompletionSource<bool>();
+        var streaming = new TaskCompletionSource<bool>();
         engine.StateChanged += s => { if (s == DictationState.Idle) idle.TrySetResult(true); };
+        engine.StateChanged += s => { if (s == DictationState.Streaming) streaming.TrySetResult(true); };
 
         engine.OnHotkeyPressed();
+        var streamingWinner = await Task.WhenAny(streaming.Task, Task.Delay(TimeSpan.FromSeconds(8)));
+        streamingWinner.ShouldBe(streaming.Task, "Engine did not enter Streaming");
         audio.PushFrames(new ReadOnlyMemory<float>(new float[16000]));
         engine.OnHotkeyReleased();
 
@@ -68,6 +76,38 @@ public class FinalChunkPreservationTests
 
         injector.Applied.ShouldBeEmpty();
         paste.Pasted.ShouldBe(["hello world"]);
+    }
+
+    [Fact]
+    public async Task Streaming_loads_language_specific_model_before_processing()
+    {
+        var streamer = new FinalYieldingStreamer(new TranscriptUpdate(0, "shalom"));
+        var audio = new ChannelDrivenFakeAudio();
+        var cfg = new AppConfig
+        {
+            StreamingMode = "auto",
+            AutoLanguage = false,
+            ActiveLanguage = "he",
+            LanguageModels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["he"] = "ggml-medium-he",
+            },
+        };
+        var engine = NewEngine(audio, streamer, cfg);
+        var idle = new TaskCompletionSource<bool>();
+        var streaming = new TaskCompletionSource<bool>();
+        engine.StateChanged += s => { if (s == DictationState.Idle) idle.TrySetResult(true); };
+        engine.StateChanged += s => { if (s == DictationState.Streaming) streaming.TrySetResult(true); };
+
+        engine.OnHotkeyPressed();
+        var streamingWinner = await Task.WhenAny(streaming.Task, Task.Delay(TimeSpan.FromSeconds(8)));
+        streamingWinner.ShouldBe(streaming.Task, "Engine did not enter Streaming after loading the language model");
+        audio.PushFrames(new ReadOnlyMemory<float>(new float[16000]));
+        engine.OnHotkeyReleased();
+
+        var winner = await Task.WhenAny(idle.Task, Task.Delay(TimeSpan.FromSeconds(8)));
+        winner.ShouldBe(idle.Task, "Engine did not reach Idle within 8s");
+        streamer.LoadedModelPath.ShouldBe(ModelCatalog.PathFor("ggml-medium-he"));
     }
 
     private sealed class FinalYieldingStreamer : IStreamingTranscriber
@@ -80,6 +120,14 @@ public class FinalChunkPreservationTests
         }
 
         public event Action? DegradeRequested;
+        public string? LoadedModelPath { get; private set; }
+        public bool? LoadedUseGpu { get; private set; }
+        public void EnsureLoaded(string modelPath, bool useGpu = true)
+        {
+            LoadedModelPath = modelPath;
+            LoadedUseGpu = useGpu;
+        }
+
         public async IAsyncEnumerable<TranscriptUpdate> RunAsync(
             ChannelReader<ReadOnlyMemory<float>> frames, int sampleRate, AppConfig config,
             [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)

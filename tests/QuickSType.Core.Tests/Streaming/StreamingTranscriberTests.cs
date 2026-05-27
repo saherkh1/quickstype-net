@@ -74,6 +74,7 @@ public class StreamingTranscriberTests
         {
             _updates = updates; _delayMs = delayMs;
         }
+        public void EnsureLoaded(string modelPath, bool useGpu = true) { }
         public async IAsyncEnumerable<TranscriptUpdate> RunAsync(
             ChannelReader<ReadOnlyMemory<float>> frames, int sampleRate, AppConfig config,
             [EnumeratorCancellation] CancellationToken ct = default)

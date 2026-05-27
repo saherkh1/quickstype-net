@@ -9,6 +9,8 @@ Do not publish generated manifests until:
 - SHA-256 values are computed from the exact uploaded release assets.
 - `tests/manual/UPDATE_CANARY_MATRIX.md` records the canary update evidence.
 
+Unsigned first-shipment releases are intentionally excluded from Homebrew and WinGet. Publish those only as GitHub Release assets until signed artifacts are available.
+
 ## Homebrew
 
 ```bash

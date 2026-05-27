@@ -154,7 +154,6 @@ public sealed class DictationEngine : IDisposable
             _audio.Start();
             if (effective == "streaming" && _streamer is not null && _audio.Frames is { } frames)
             {
-                SetState(DictationState.Streaming);
                 _cts?.Cancel();
                 _cts = new CancellationTokenSource();
                 var snapshot = ApplyLayoutLanguageHint(_config);
@@ -219,6 +218,13 @@ public sealed class DictationEngine : IDisposable
     {
         try
         {
+            var modelId = ResolveModelId(snapshot);
+            var modelPath = ModelCatalog.PathFor(modelId);
+            var useGpu = snapshot.TranscriptionBackend != "cpu";
+            SetState(DictationState.LoadingModel);
+            await Task.Run(() => _streamer!.EnsureLoaded(modelPath, useGpu), ct).ConfigureAwait(false);
+            SetState(DictationState.Streaming);
+
             var streamedText = snapshot.EnableStreamingInsertion ? null : new StringBuilder();
             await foreach (var update in _streamer!.RunAsync(frames, sampleRate, snapshot, ct).ConfigureAwait(false))
             {
@@ -246,6 +252,11 @@ public sealed class DictationEngine : IDisposable
         {
             _log.LogError(ex, "Streaming loop failed");
             Errored?.Invoke(ex);
+        }
+        finally
+        {
+            if (_state is DictationState.LoadingModel)
+                SetState(DictationState.Idle);
         }
     }
 

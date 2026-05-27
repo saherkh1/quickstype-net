@@ -5,6 +5,8 @@ namespace QuickSType.Core.Transcribe;
 
 public interface IStreamingTranscriber : IDisposable
 {
+    void EnsureLoaded(string modelPath, bool useGpu = true);
+
     IAsyncEnumerable<TranscriptUpdate> RunAsync(
         ChannelReader<ReadOnlyMemory<float>> frames,
         int sampleRate,

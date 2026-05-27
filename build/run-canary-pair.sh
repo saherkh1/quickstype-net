@@ -25,6 +25,12 @@ if [[ "$first_version" == "$second_version" ]]; then
   exit 64
 fi
 
+signing_mode="${QUICKSTYPE_RELEASE_SIGNING_MODE:-unsigned}"
+if [[ "$signing_mode" != "signed" && "$signing_mode" != "unsigned" ]]; then
+  echo "QUICKSTYPE_RELEASE_SIGNING_MODE must be signed or unsigned: $signing_mode" >&2
+  exit 64
+fi
+
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 tmpdir="$(mktemp -d)"
 cleanup() {
@@ -36,11 +42,11 @@ for version in "$first_version" "$second_version"; do
   evidence_output=".planning/release-evidence-v${version}.md"
   run_id_file="$tmpdir/release-run-id-v${version}"
 
-  echo "Running canary release v$version for $repo"
-  bash "$script_dir/run-canary-release.sh" "$version" canary "$repo" "$run_id_file"
+  echo "Running canary release v$version for $repo signing_mode=$signing_mode"
+  QUICKSTYPE_RELEASE_SIGNING_MODE="$signing_mode" bash "$script_dir/run-canary-release.sh" "$version" canary "$repo" "$run_id_file"
 
   echo "Collecting canary release evidence for v$version"
-  bash "$script_dir/collect-release-evidence.sh" "$version" "$repo" "$evidence_output" "$(cat "$run_id_file")"
+  QUICKSTYPE_RELEASE_SIGNING_MODE="$signing_mode" bash "$script_dir/collect-release-evidence.sh" "$version" "$repo" "$evidence_output" "$(cat "$run_id_file")"
   echo "Canary evidence written to $evidence_output"
 done
 

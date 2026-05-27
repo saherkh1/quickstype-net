@@ -9,6 +9,23 @@ Phase 6 uses `.github/workflows/release.yml` for canary and later stable release
 
 Tag pushes default to the `canary` Velopack channel during Phase 6.
 
+Manual dispatch also accepts `signing_mode`:
+
+- `unsigned` creates unsigned macOS and Windows Velopack artifacts without Apple/Azure signing secrets. This is the "ship first, sign later" path. macOS Gatekeeper and Windows SmartScreen warnings are expected, and release notes must say the artifacts are unsigned.
+- `signed` requires the Apple Developer ID/notarization and Azure Artifact Signing prerequisites below.
+
+The local release helpers default to unsigned mode. Set `QUICKSTYPE_RELEASE_SIGNING_MODE=signed` when the signing credentials are ready.
+
+```bash
+bash build/run-canary-pair.sh saherkh1/quickstype-net
+bash build/run-stable-release.sh 1.0.0 saherkh1/quickstype-net
+
+QUICKSTYPE_RELEASE_SIGNING_MODE=signed bash build/run-canary-pair.sh saherkh1/quickstype-net
+QUICKSTYPE_RELEASE_SIGNING_MODE=signed bash build/run-v1-release.sh 1.0.0 saherkh1/quickstype-net
+```
+
+Do not publish Homebrew or Winget manifests for unsigned artifacts. Use GitHub Releases directly for the unsigned first shipment, then generate package-manager manifests after signed artifacts exist.
+
 ## macOS Secrets
 
 Required repository secrets:
@@ -66,10 +83,14 @@ Timestamping uses `http://timestamp.acs.microsoft.com` with SHA-256.
 After committing and pushing the workflow changes, check that GitHub can see the workflows and required secret names:
 
 ```bash
-bash build/check-release-prereqs.sh saherkh1/quickstype-net
+QUICKSTYPE_RELEASE_SIGNING_MODE=signed bash build/check-release-prereqs.sh saherkh1/quickstype-net
 ```
 
-The script checks workflow names and secret names only; it does not read secret values.
+The script checks workflow names and secret names only; it does not read secret values. In unsigned mode it checks workflow presence and skips signing secret checks:
+
+```bash
+QUICKSTYPE_RELEASE_SIGNING_MODE=unsigned bash build/check-release-prereqs.sh saherkh1/quickstype-net
+```
 
 ## Configure Repository Secrets
 
