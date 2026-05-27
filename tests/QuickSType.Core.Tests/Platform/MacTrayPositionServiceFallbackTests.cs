@@ -1,13 +1,11 @@
 namespace QuickSType.Core.Tests.Platform;
 
+#if MACOS_PLATFORM
 // Regression test for debug session hud-not-showing (2026-05-24):
 // MacTrayPositionService.ComputeFallbackRect previously computed Y as
 // `bounds.Y + bounds.Height + 4` — placing the rect BELOW the display
 // (off-screen). The fallback rect must be near the TOP of the display
 // (where the macOS menu bar / status items live), not the bottom.
-//
-// The Platform.Mac project reference is OSX-conditional in this test
-// csproj, so these tests no-op on non-macOS hosts.
 public class MacTrayPositionServiceFallbackTests
 {
     [Fact]
@@ -57,3 +55,4 @@ public class MacTrayPositionServiceFallbackTests
         rect.X.ShouldBeLessThan(3840);
     }
 }
+#endif
