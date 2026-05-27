@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Microsoft.Extensions.Logging;
@@ -7,6 +8,7 @@ using QuickSType.Core.Config;
 using QuickSType.Core.Transcribe;
 using QuickSType.UI.Composition;
 using QuickSType.UI.ViewModels;
+using Rectangle = System.Drawing.Rectangle;
 
 namespace QuickSType.UI.Views;
 
@@ -23,7 +25,9 @@ public partial class MainWindow : Window
     public MainWindow(AppHost host, ILogger<MainWindow>? log = null) : this()
     {
         _log = (ILogger?)log ?? NullLogger.Instance;
-        DataContext = new SettingsViewModel(host);
+        var vm = new SettingsViewModel(host);
+        vm.SetOwnerWindow(this);
+        DataContext = vm;
         WireButtons();
     }
 
@@ -53,6 +57,50 @@ public partial class MainWindow : Window
             MainTab.About => 3,
             _ => 0,
         };
+    }
+
+    public void PositionNearTray(Rectangle trayRect)
+    {
+        const int winW = 480;
+        const int winH = 620;
+        int x, y;
+
+        if (trayRect.IsEmpty)
+        {
+            var screen = Screens.Primary;
+            if (screen is not null)
+            {
+                var area = screen.WorkingArea;
+                x = area.X + area.Width - winW - 16;
+                y = area.Y + 16;
+            }
+            else
+            {
+                x = 1920 - winW - 16;
+                y = 16;
+            }
+        }
+        else
+        {
+            // Center horizontally under the tray icon, drop 8px below it
+            x = trayRect.Left + (trayRect.Width - winW) / 2;
+            y = OperatingSystem.IsWindows()
+                ? trayRect.Top - winH - 8   // Windows taskbar: rise above
+                : trayRect.Bottom + 8;       // macOS menu bar: drop below
+
+            // Clamp so the window doesn't go off-screen
+            var screen = Screens.ScreenFromPoint(new PixelPoint(x, y)) ?? Screens.Primary;
+            if (screen is not null)
+            {
+                var area = screen.WorkingArea;
+                if (x + winW > area.X + area.Width) x = area.X + area.Width - winW;
+                if (x < area.X) x = area.X;
+                if (y + winH > area.Y + area.Height) y = area.Y + area.Height - winH;
+                if (y < area.Y) y = area.Y;
+            }
+        }
+
+        Position = new PixelPoint(x, y);
     }
 
     private void OpenInFinder(string path)

@@ -17,6 +17,7 @@ public class AutoDegradeTests
     {
         public event Action? DegradeRequested;
         public void RaiseDegrade() => DegradeRequested?.Invoke();
+        public void EnsureLoaded(string modelPath, bool useGpu = true, CancellationToken cancellationToken = default) { }
         public async IAsyncEnumerable<TranscriptUpdate> RunAsync(
             ChannelReader<ReadOnlyMemory<float>> frames, int sampleRate, AppConfig config,
             [EnumeratorCancellation] CancellationToken ct = default)
@@ -102,6 +103,9 @@ public class AutoDegradeTests
         public float[] Stop() => Array.Empty<float>();
         public IReadOnlyList<AudioDeviceInfo> ListInputDevices() => Array.Empty<AudioDeviceInfo>();
         public void SelectInputDevice(string? deviceName) { }
+#pragma warning disable CS0067
+        public event Action<float>? LevelChanged;
+#pragma warning restore CS0067
         public void Dispose() { }
     }
 

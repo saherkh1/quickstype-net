@@ -5,11 +5,15 @@ public sealed record ModelInfo(
     string DisplayName,
     string Url,
     long ApproxSizeBytes,
-    string Description);
+    string Description,
+    string? LanguageCode = null);   // null = appears in global picker; non-null = language-specific only
 
 public static class ModelCatalog
 {
     private const string Hf = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main";
+
+    // Pinned to HF commit 241e89a758b512be3e5bae44dc93c2dc34873b81 (captured 2026-05-24)
+    private const string HfHe = "https://huggingface.co/imvladikon/whisper-medium-he/resolve/241e89a758b512be3e5bae44dc93c2dc34873b81";
 
     public static readonly IReadOnlyList<ModelInfo> All = new ModelInfo[]
     {
@@ -20,12 +24,29 @@ public static class ModelCatalog
         new("ggml-large-v3",             "Large v3 (3.1 GB)",       $"{Hf}/ggml-large-v3.bin",              3_100_000_000, "Best accuracy. Heaviest."),
         new("ggml-large-v3-turbo",       "Large v3 Turbo (1.6 GB)", $"{Hf}/ggml-large-v3-turbo.bin",        1_620_000_000, "Newer turbo variant. Faster than large-v3 with similar accuracy."),
         new("ggml-large-v3-turbo-q5_0",  "Large v3 Turbo Q5 (570 MB) — recommended", $"{Hf}/ggml-large-v3-turbo-q5_0.bin", 574_000_000, "Quantised turbo. Half the size, near-identical accuracy. Default."),
+        // Language-specific fine-tuned models (excluded from global picker)
+        new("ggml-medium-he", "Hebrew Medium (1.5 GB) — fine-tuned",
+            $"{HfHe}/ggml-hebrew.bin",
+            1_533_763_059,
+            "Community fine-tune for Hebrew. Significantly better accuracy than the global model for Hebrew speech.",
+            LanguageCode: "he"),
     };
 
     public static ModelInfo? Find(string id) =>
         All.FirstOrDefault(m => string.Equals(m.Id, id, StringComparison.OrdinalIgnoreCase));
 
     public static ModelInfo Default => Find("ggml-large-v3-turbo-q5_0") ?? All[1];
+
+    /// <summary>
+    /// Maps language codes to their curated language-specific fine-tuned model entries.
+    /// Global models are NOT in this map — they are accessible from <see cref="All"/>.
+    /// Arabic ("ar") is intentionally absent — no ggml fine-tune available yet.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, IReadOnlyList<ModelInfo>> LanguageModels =
+        new Dictionary<string, IReadOnlyList<ModelInfo>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["he"] = new[] { Find("ggml-medium-he")! },
+        };
 
     public static string ModelsDirectory()
     {

@@ -57,6 +57,12 @@ public class ConfigStore
                         cfg = MigrateV2ToV3(cfg);
                         Save(cfg);
                     }
+                    if (cfg.SchemaVersion < 4)
+                    {
+                        _log.LogInformation("Migrating config from v3 to v4");
+                        cfg = MigrateV3ToV4(cfg);
+                        Save(cfg);
+                    }
                     return cfg;
                 }
             }
@@ -127,6 +133,19 @@ public class ConfigStore
             StreamingMode = "auto",
             PreferredModel = null,
             SchemaVersion = 3,
+        };
+    }
+
+    /// <summary>
+    /// Migrate a v3 AppConfig to v4 by injecting an empty LanguageModels dictionary and bumping
+    /// SchemaVersion. Empty map means "use global model for all languages" — matches the v3 behaviour.
+    /// </summary>
+    public static AppConfig MigrateV3ToV4(AppConfig v3)
+    {
+        return v3 with
+        {
+            LanguageModels = new Dictionary<string, string>(),
+            SchemaVersion = 4,
         };
     }
 

@@ -31,6 +31,7 @@
       <controls:WaveformControl x:Name="Waveform"
                                  Grid.Row="0" Grid.Column="0"
                                  BarColor="#FF3B30"
+                                 IsActive="{Binding IsRecording}"
                                  IsVisible="{Binding IsActive}" />
 
       <!-- REC dot - row 0, col 1 -->
@@ -40,7 +41,16 @@
                Fill="#FF3B30"
                VerticalAlignment="Bottom"
                Margin="8,0,0,4"
-               IsVisible="{Binding IsActive}" />
+               IsVisible="{Binding IsRecording}" />
+
+      <!-- Loading dot (amber) - shown when swapping model (LoadingModel state) -->
+      <Ellipse x:Name="LoadingDot"
+               Grid.Row="0" Grid.Column="1"
+               Width="12" Height="12"
+               Fill="#FFB300"
+               VerticalAlignment="Bottom"
+               Margin="8,0,0,4"
+               IsVisible="{Binding IsLoadingModel}" />
 
       <!-- Elapsed counter - row 1, spans both columns -->
       <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"

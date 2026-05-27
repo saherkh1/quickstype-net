@@ -83,36 +83,36 @@ public partial class App : Application
             // Apply initial vibrancy from config.
             _hudVm.UpdateVibrancy(Host.ResolveVibrancyEnabled());
 
+            // Wire real microphone RMS into the HUD waveform.
+            _hudWindow.AttachAudioLevels(Host.Audio);
+
             // Subscribe to DictationEngine state changes and marshal to UI thread.
+            // Hide-on-release policy: HUD is visible only while the user is actively holding
+            // the hotkey (Recording or Streaming). Every other transition — Processing,
+            // LoadingModel-after-release, Idle — hides the HUD immediately so the next
+            // push-to-talk press shows a fresh HUD without waiting on the prior transcription.
             Host.Engine.StateChanged += state =>
             {
                 Dispatcher.UIThread.Post(() =>
                 {
                     try
                     {
-                        if (state is DictationState.Recording or DictationState.Streaming)
+                        _hudVm.OnStateChanged(state);
+
+                        if (state is DictationState.Recording or DictationState.Streaming or DictationState.LoadingModel)
                         {
-                            _hudVm.OnStateChanged(state);
+                            // LoadingModel runs while the user is still holding the hotkey
+                            // (model swap on press) — show the HUD so the amber loading-dot
+                            // affordance is visible.
                             var trayRect = Host.TrayPosition.GetTrayRect();
                             _hudWindow.PositionNearTray(trayRect);
                             if (!_hudWindow.IsVisible) _hudWindow.Show();
                         }
-                        else if (state == DictationState.Idle)
-                        {
-                            _hudVm.OnStateChanged(state);
-                            // Hide with brief delay so user sees it go away cleanly.
-                            Task.Delay(150).ContinueWith(_ =>
-                            {
-                                Dispatcher.UIThread.Post(() =>
-                                {
-                                    if (!_hudVm.IsActive) _hudWindow.Hide();
-                                });
-                            }, TaskScheduler.Default);
-                        }
                         else
                         {
-                            // Processing state: update VM but keep HUD visible.
-                            _hudVm.OnStateChanged(state);
+                            // Processing / Idle — user has released the hotkey.
+                            // Hide synchronously so a re-press can immediately Show() a fresh HUD.
+                            _hudWindow.Hide();
                         }
                     }
                     catch (Exception ex)

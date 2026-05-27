@@ -77,8 +77,9 @@ public class ConfigMigrationV3Tests
     }
 
     [Fact]
-    public void Load_migrates_v2_config_on_disk_to_v3()
+    public void Load_migrates_v2_config_on_disk_to_v4()
     {
+        // With v3→v4 fall-through added, a v2 config now migrates all the way to v4 in one Load().
         var tmp = Path.GetTempFileName();
         try
         {
@@ -89,14 +90,17 @@ public class ConfigMigrationV3Tests
             var store = new ConfigStore(overridePath: tmp);
             var loaded = store.Load();
 
-            loaded.SchemaVersion.ShouldBe(3);
+            // v2 -> v3 -> v4 fall-through: ends at v4
+            loaded.SchemaVersion.ShouldBe(4);
             loaded.Model.ShouldBe("ggml-small");
             loaded.PreferredModel.ShouldBeNull();
             loaded.StreamingMode.ShouldBe("auto");
+            loaded.LanguageModels.ShouldNotBeNull();
+            loaded.LanguageModels.Count.ShouldBe(0);
 
-            // Verify file on disk was rewritten with schema_version=3
+            // Verify file on disk was rewritten with schema_version=4
             var rewritten = File.ReadAllText(tmp);
-            rewritten.ShouldContain("\"schema_version\": 3");
+            rewritten.ShouldContain("\"schema_version\": 4");
         }
         finally
         {

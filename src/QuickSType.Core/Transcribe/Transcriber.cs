@@ -20,11 +20,16 @@ public sealed class Transcriber : IDisposable
 
     public string? LoadedModelPath => _loadedModelPath;
 
-    public void EnsureLoaded(string modelPath, bool useGpu = true)
+    public void EnsureLoaded(string modelPath, bool useGpu = true, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         lock (_lock)
         {
             if (_factory is not null && _loadedModelPath == modelPath) return;
+            // Re-check after acquiring the lock: a prior caller may have just finished
+            // loading a different model on this token, and the caller may have cancelled
+            // in the interim.
+            cancellationToken.ThrowIfCancellationRequested();
             _factory?.Dispose();
             var options = new WhisperFactoryOptions { UseGpu = useGpu };
             _factory = WhisperFactory.FromPath(modelPath, options);

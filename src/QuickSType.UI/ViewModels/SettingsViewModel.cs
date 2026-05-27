@@ -18,8 +18,10 @@ public sealed partial class SettingsViewModel : ObservableObject
 {
     private readonly AppHost _host;
     private readonly ILogger _log;
+    private Avalonia.Controls.Window? _ownerWindow;
     private bool _suppressLanguageSync;
     private bool _suppressTelemetrySync;
+    private bool _suppressStreamingInsertionSync;
 
     [ObservableProperty] private string _hotkeyDisplay;
     [ObservableProperty] private bool _isCapturingHotkey;
@@ -29,14 +31,15 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string? _selectedAudioDevice;
     [ObservableProperty] private string _transcriptionBackend;
     [ObservableProperty] private string _streamingMode;
+    [ObservableProperty] private bool _enableStreamingInsertion;
     [ObservableProperty] private string _appearanceSetting;
     [ObservableProperty] private bool _showNotifications;
     [ObservableProperty] private bool _enableCrashTelemetry;
     [ObservableProperty] private bool _startAtLogin;
     [ObservableProperty] private string _testTranscriptionResult = string.Empty;
-    [ObservableProperty] private bool _isTesting;
     [ObservableProperty] private double _modelDownloadPercent;
     [ObservableProperty] private string _modelDownloadStatus = string.Empty;
+    [ObservableProperty] private bool _isDownloadingGeneralModel;
     [ObservableProperty] private bool _isFirstRun;
     [ObservableProperty] private string _firstRunBannerBody = string.Empty;
     [ObservableProperty] private string _firstRunBannerCaption = "You can change this any time in Settings.";
@@ -52,18 +55,24 @@ public sealed partial class SettingsViewModel : ObservableObject
     private UpdateCheckResult? _lastUpdateResult;
     private DateTimeOffset? _lastUpdateChecked;
     private PostUpdateSelfCheckResult _postUpdateSelfCheckResult = PostUpdateSelfCheckResult.None("unknown");
+    private CancellationTokenSource? _generalModelDownloadCts;
 
     public ObservableCollection<ModelRowViewModel> AvailableModels { get; }
+    public ObservableCollection<PerLanguageModelRow> LanguageModelRows { get; }
+    public ObservableCollection<DownloadedModelRow> DownloadedModels { get; }
+    [ObservableProperty] private string _downloadedCountText = string.Empty;
     public ObservableCollection<AudioDeviceInfo> AudioDevices { get; }
     public ObservableCollection<LanguageRow> AvailableLanguages { get; }
     public ObservableCollection<string> Backends { get; } = new() { "auto", "cpu", "metal", "cuda" };
     public ObservableCollection<string> AppearanceSettings { get; } = new() { "Auto", "On", "Off" };
     public ObservableCollection<StreamingModeOption> StreamingModes { get; } = new()
     {
-        new("auto", "Auto (recommended)"),
-        new("streaming", "Always stream"),
-        new("commit-on-pause", "Commit on pause"),
+        new("auto", "Auto"),
+        new("streaming", "Live transcription"),
+        new("commit-on-pause", "After release only"),
     };
+
+    public void SetOwnerWindow(Avalonia.Controls.Window owner) => _ownerWindow = owner;
 
     public SettingsViewModel(AppHost host)
     {
@@ -90,7 +99,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             };
             _firstRunBannerBody =
                 $"We recommend {recommended.DisplayName} for your system ({tierLabel}). " +
-                $"It's pre-selected below. Click Download to fetch it (~{sizeMb} MB).";
+                $"It's pre-selected below — open the dropdown and select it to start downloading automatically (~{sizeMb} MB).";
 
             _log.LogInformation("First run: recommending {ModelId} for {Tier}",
                 recommended.Id, host.SystemSpecs.Tier);
@@ -102,13 +111,20 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
 
         AvailableModels = new ObservableCollection<ModelRowViewModel>(
-            ModelCatalog.All.Select(m => new ModelRowViewModel(m, host.SystemSpecs, host.SystemSpecsService)));
+            ModelCatalog.All
+                .Where(m => m.LanguageCode is null)
+                .Select(m => new ModelRowViewModel(m, host.SystemSpecs, host.SystemSpecsService)));
+
+        LanguageModelRows = new ObservableCollection<PerLanguageModelRow>(BuildLanguageModelRows(c));
+        DownloadedModels = new ObservableCollection<DownloadedModelRow>();
+        RefreshDownloadedModels();
 
         _hotkeyDisplay = HotkeyService.Format(HotkeyService.ParseKey(c.Hotkey));
         _autoLanguage = c.AutoLanguage;
         _selectedAudioDevice = c.SelectedAudioDevice;
         _transcriptionBackend = c.TranscriptionBackend;
         _streamingMode = c.StreamingMode;
+        _enableStreamingInsertion = c.EnableStreamingInsertion;
         _appearanceSetting = c.EnableVibrancy switch
         {
             true => "On",
@@ -124,7 +140,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         AvailableLanguages = new ObservableCollection<LanguageRow>(
             Languages.Common.Select(l => new LanguageRow(
                 l.Code, l.DisplayName, l.NativeName,
-                isEnabled: c.Languages.Contains(l.Code, StringComparer.OrdinalIgnoreCase))));
+                isEnabled: c.Languages.Contains(l.Code, StringComparer.OrdinalIgnoreCase),
+                openModelPicker: () => OpenLanguageModelPickerAsync(l.Code))));
 
         foreach (var row in AvailableLanguages)
             row.PropertyChanged += OnLanguageRowChanged;
@@ -137,10 +154,14 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     private void OnConfigChanged(AppConfig cfg)
     {
+        RebuildLanguageModelRowsIfNeeded(cfg);
         _suppressLanguageSync = true;
         try
         {
             AutoLanguage = cfg.AutoLanguage;
+            _suppressStreamingInsertionSync = true;
+            try { EnableStreamingInsertion = cfg.EnableStreamingInsertion; }
+            finally { _suppressStreamingInsertionSync = false; }
             var enabled = new HashSet<string>(cfg.Languages, StringComparer.OrdinalIgnoreCase);
             foreach (var row in AvailableLanguages)
             {
@@ -172,6 +193,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         if (_suppressLanguageSync) return;
         _host.UpdateConfig(_host.Config.WithAutoLanguage(value));
+    }
+
+    partial void OnEnableStreamingInsertionChanged(bool value)
+    {
+        if (_suppressStreamingInsertionSync) return;
+        Save(c => c with { EnableStreamingInsertion = value });
     }
 
     partial void OnAppearanceSettingChanged(string value)
@@ -215,15 +242,35 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
-    private void SaveModel() => Save(c => c with { Model = SelectedModel, PreferredModel = SelectedModel });
-
-    [RelayCommand]
-    private async Task DownloadSelectedModel(CancellationToken ct)
+    partial void OnSelectedModelChanged(string value)
     {
-        var model = ModelCatalog.Find(SelectedModel);
+        // Cancel any in-flight download for a previously selected model.
+        _generalModelDownloadCts?.Cancel();
+        _generalModelDownloadCts = null;
+
+        if (ModelCatalog.Find(value) is null) return;
+
+        // If the model is already installed, persist immediately. Otherwise defer the
+        // Save until after DownloadAsync + verify succeed, so a failed download can't
+        // leave the config pointing at an uninstalled model.
+        if (ModelCatalog.IsInstalled(value))
+            Save(c => c with { Model = value, PreferredModel = value });
+        else
+            _ = StartGeneralModelDownloadAsync(value);
+    }
+
+    private async Task StartGeneralModelDownloadAsync(string modelId)
+    {
+        var model = ModelCatalog.Find(modelId);
         if (model is null) return;
+
+        var cts = new CancellationTokenSource();
+        _generalModelDownloadCts = cts;
+
+        IsDownloadingGeneralModel = true;
+        ModelDownloadPercent = 0;
         ModelDownloadStatus = "Starting download…";
+
         var progress = new Progress<ModelDownloader.Progress>(p =>
         {
             ModelDownloadPercent = p.Percent;
@@ -232,28 +279,41 @@ public sealed partial class SettingsViewModel : ObservableObject
             var speed = p.BytesPerSecond / 1_000_000.0;
             ModelDownloadStatus = $"Downloading… {p.Percent:F0}% ({mb:F1} / {totalMb:F1} MB, {speed:F1} MB/s)";
         });
+
         try
         {
-            await _host.ModelDownloader.DownloadAsync(model, progress, ct);
+            await _host.ModelDownloader.DownloadAsync(model, progress, cts.Token);
 
-            // ModelDownloader.DownloadAsync verifies SHA-256 internally (HARDEN-01).
-            // Show the verifying state cosmetically (it has already happened on the previous line).
             ModelDownloadStatus = "Verifying SHA-256…";
 
-            // D-02 + D-03: persist PreferredModel AND keep Model in sync, only after verify passes.
-            _host.UpdateConfig(_host.Config.WithPreferredModel(SelectedModel) with { Model = SelectedModel });
+            // Only persist the model selection after the download + verify succeed.
+            // If we saved earlier and the download fails, the config would point at
+            // an uninstalled model.
+            Save(c => c with { Model = modelId, PreferredModel = modelId });
+
             if (IsFirstRun)
             {
                 IsFirstRun = false;
-                _log.LogInformation("PreferredModel set to {ModelId}; first-run flow complete", SelectedModel);
+                _log.LogInformation("PreferredModel set to {ModelId}; first-run flow complete", modelId);
             }
 
             ModelDownloadStatus = $"{model.DisplayName} ready.";
             _ = AutoClearStatusAsync($"{model.DisplayName} ready.", TimeSpan.FromSeconds(5));
+            RefreshDownloadedModels();
+        }
+        catch (OperationCanceledException)
+        {
+            ModelDownloadStatus = string.Empty;
         }
         catch (Exception ex)
         {
             ModelDownloadStatus = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            IsDownloadingGeneralModel = false;
+            if (ReferenceEquals(_generalModelDownloadCts, cts))
+                _generalModelDownloadCts = null;
         }
     }
 
@@ -300,32 +360,83 @@ public sealed partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     private async Task TestTranscription()
     {
-        IsTesting = true;
-        TestTranscriptionResult = "Recording 3 s…";
+        TestTranscriptionResult = "Recording 3 seconds. Speak now.";
+        var recordingStarted = false;
         try
         {
+            await Task.Yield();
+            _host.Audio.SelectInputDevice(SelectedAudioDevice ?? _host.Config.SelectedAudioDevice);
             _host.Audio.Start();
+            recordingStarted = true;
             await Task.Delay(3000);
             var samples = _host.Audio.Stop();
-            TestTranscriptionResult = "Transcribing…";
-            var modelPath = ModelCatalog.PathFor(_host.Config.Model);
-            if (!File.Exists(modelPath))
+            recordingStarted = false;
+
+            if (samples.Length < _host.Audio.SampleRate / 5)
             {
-                TestTranscriptionResult = $"Model not installed: {_host.Config.Model}";
+                TestTranscriptionResult = "No audio was captured. Check microphone permission and the selected input device.";
                 return;
             }
-            _host.Transcriber.EnsureLoaded(modelPath);
-            var text = await _host.Transcriber.TranscribeAsync(samples, _host.Audio.SampleRate, _host.Config);
-            TestTranscriptionResult = string.IsNullOrWhiteSpace(text) ? "(no speech detected)" : text;
+
+            var seconds = samples.Length / (double)_host.Audio.SampleRate;
+            TestTranscriptionResult = $"Transcribing {seconds:F1} seconds of audio…";
+            await Task.Yield();
+
+            var modelId = ResolveTestModelId();
+            var modelPath = ModelCatalog.PathFor(modelId);
+            if (!File.Exists(modelPath))
+            {
+                TestTranscriptionResult = $"Model not installed: {modelId}. Download it from the Models tab first.";
+                return;
+            }
+
+            var useGpu = TranscriptionBackend != "cpu";
+            _host.Transcriber.EnsureLoaded(modelPath, useGpu);
+
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+            var config = _host.Config with
+            {
+                Model = modelId,
+                TranscriptionBackend = TranscriptionBackend,
+            };
+            var text = await _host.Transcriber.TranscribeAsync(
+                samples,
+                _host.Audio.SampleRate,
+                config,
+                timeout.Token);
+            TestTranscriptionResult = string.IsNullOrWhiteSpace(text)
+                ? $"No speech recognized from {seconds:F1} seconds of audio. Try speaking closer to the microphone or choose another input device."
+                : text;
+        }
+        catch (OperationCanceledException)
+        {
+            TestTranscriptionResult = "Transcription timed out after 45 seconds. Try a smaller model or CPU backend.";
         }
         catch (Exception ex)
         {
+            _log.LogWarning(ex, "Settings test transcription failed");
             TestTranscriptionResult = $"Error: {ex.Message}";
         }
         finally
         {
-            IsTesting = false;
+            if (recordingStarted && _host.Audio.IsRecording)
+            {
+                try { _host.Audio.Stop(); }
+                catch (Exception ex) { _log.LogWarning(ex, "Stopping test transcription recording failed"); }
+            }
         }
+    }
+
+    private string ResolveTestModelId()
+    {
+        if (!string.IsNullOrWhiteSpace(SelectedModel)
+            && ModelCatalog.Find(SelectedModel) is not null
+            && File.Exists(ModelCatalog.PathFor(SelectedModel)))
+        {
+            return SelectedModel;
+        }
+
+        return _host.Config.Model;
     }
 
     [RelayCommand]
@@ -432,6 +543,53 @@ public sealed partial class SettingsViewModel : ObservableObject
         PermissionBannerText = _postUpdateSelfCheckResult.Message ?? string.Empty;
     }
 
+    private async Task OpenLanguageModelPickerAsync(string langCode)
+    {
+        if (_ownerWindow is null) return;
+        var flyout = new Views.LanguageModelFlyoutWindow(langCode, _host);
+        await flyout.ShowDialog(_ownerWindow);
+    }
+
+    private IEnumerable<PerLanguageModelRow> BuildLanguageModelRows(AppConfig config)
+    {
+        return config.Languages.Select(code =>
+        {
+            var info = Languages.Find(code);
+            var row = new PerLanguageModelRow(code, info?.DisplayName ?? code, _host, config);
+            row.DownloadCompleted = RefreshDownloadedModels;
+            return row;
+        });
+    }
+
+    private void RebuildLanguageModelRowsIfNeeded(AppConfig cfg)
+    {
+        var newCodes = new HashSet<string>(cfg.Languages, StringComparer.OrdinalIgnoreCase);
+        var currentCodes = new HashSet<string>(LanguageModelRows.Select(r => r.LangCode), StringComparer.OrdinalIgnoreCase);
+
+        if (newCodes.SetEquals(currentCodes))
+        {
+            foreach (var row in LanguageModelRows)
+                row.SyncFromConfig(cfg);
+        }
+        else
+        {
+            LanguageModelRows.Clear();
+            foreach (var row in BuildLanguageModelRows(cfg))
+                LanguageModelRows.Add(row);
+        }
+    }
+
+    private void RefreshDownloadedModels()
+    {
+        DownloadedModels.Clear();
+        var installed = ModelCatalog.All.Where(m => ModelCatalog.IsInstalled(m.Id)).ToList();
+        foreach (var m in installed)
+            DownloadedModels.Add(new DownloadedModelRow(m, _ => RefreshDownloadedModels()));
+        DownloadedCountText = $"{installed.Count} of {ModelCatalog.All.Count}";
+        foreach (var row in AvailableModels)
+            row.RefreshInstallStatus();
+    }
+
     private void Save(Func<AppConfig, AppConfig> update)
     {
         var newCfg = update(_host.Config);
@@ -449,13 +607,25 @@ public sealed partial class LanguageRow : ObservableObject
 
     [ObservableProperty] private bool _isEnabled;
 
+    // Injected factory — opens the per-language model picker flyout
+    private readonly Func<Task>? _openModelPicker;
+
     public string Label => $"{NativeName}  ({DisplayName})";
 
-    public LanguageRow(string code, string displayName, string nativeName, bool isEnabled)
+    public LanguageRow(string code, string displayName, string nativeName, bool isEnabled,
+        Func<Task>? openModelPicker = null)
     {
         Code = code;
         DisplayName = displayName;
         NativeName = nativeName;
         IsEnabled = isEnabled;
+        _openModelPicker = openModelPicker;
+    }
+
+    [RelayCommand]
+    private async Task OpenModelPicker()
+    {
+        if (_openModelPicker is not null)
+            await _openModelPicker();
     }
 }

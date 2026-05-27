@@ -21,6 +21,12 @@ if [[ -z "$repo" ]]; then
   repo="$(gh repo view --json nameWithOwner -q .nameWithOwner)"
 fi
 
+signing_mode="${QUICKSTYPE_RELEASE_SIGNING_MODE:-unknown}"
+if [[ "$signing_mode" != "signed" && "$signing_mode" != "unsigned" && "$signing_mode" != "unknown" ]]; then
+  echo "QUICKSTYPE_RELEASE_SIGNING_MODE must be signed, unsigned, or unset: $signing_mode" >&2
+  exit 64
+fi
+
 tag="$version"
 if [[ "$tag" != v* ]]; then
   tag="v$tag"
@@ -93,6 +99,7 @@ emit "| Published at | $published_at |"
 emit "| Prerelease | $is_prerelease |"
 emit "| Release target | $target_commitish |"
 emit "| Release commit | ${release_sha:-unknown} |"
+emit "| Signing mode | $signing_mode |"
 
 if [[ -n "$expected_run_id" ]]; then
   run_url="$(gh run view "$expected_run_id" --repo "$repo" --json url -q .url)"
@@ -147,9 +154,14 @@ done < <(find "$tmpdir" -type f | sort)
 emit ""
 emit "## Manual Sign-Off"
 emit ""
-emit "- [ ] macOS package signing identity matches expected Developer ID Application/Installer identities."
-emit "- [ ] macOS notarization and stapler validation passed in the release workflow."
-emit "- [ ] Windows Azure Artifact Signing completed for publish directory and installer."
+if [[ "$signing_mode" == "unsigned" ]]; then
+  emit "- [ ] Release owner accepts this is an unsigned first shipment; macOS Gatekeeper and Windows SmartScreen warnings are expected until signing is added."
+  emit "- [ ] Release notes clearly label the macOS and Windows artifacts as unsigned."
+else
+  emit "- [ ] macOS package signing identity matches expected Developer ID Application/Installer identities."
+  emit "- [ ] macOS notarization and stapler validation passed in the release workflow."
+  emit "- [ ] Windows Azure Artifact Signing completed for publish directory and installer."
+fi
 emit "- [ ] \`tests/manual/UPDATE_CANARY_MATRIX.md\` rows updated with PASS status plus tester/date/notes evidence."
 emit "- [ ] \`tests/manual/INJECTION_MATRIX.md\` rows updated with PASS status plus tester/date/notes evidence."
 emit "- [ ] \`tests/manual/TELEMETRY_MATRIX.md\` rows updated with PASS status plus tester/date/notes evidence."

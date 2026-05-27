@@ -10,6 +10,12 @@ if [[ -z "$repo" ]]; then
   fi
 fi
 
+signing_mode="${QUICKSTYPE_RELEASE_SIGNING_MODE:-signed}"
+if [[ "$signing_mode" != "signed" && "$signing_mode" != "unsigned" ]]; then
+  echo "QUICKSTYPE_RELEASE_SIGNING_MODE must be signed or unsigned: $signing_mode" >&2
+  exit 64
+fi
+
 required_workflows=("release" "secret-scan")
 required_secrets=(
   APPLE_DEVELOPER_ID_APPLICATION_P12_BASE64
@@ -31,6 +37,7 @@ required_secrets=(
 )
 
 echo "Checking release prerequisites for $repo"
+echo "signing mode: $signing_mode"
 
 workflow_names="$(gh workflow list --repo "$repo" --json name -q '.[].name')"
 missing=0
@@ -44,15 +51,19 @@ for workflow in "${required_workflows[@]}"; do
   fi
 done
 
-secret_names="$(gh secret list --repo "$repo" --json name -q '.[].name')"
-for secret in "${required_secrets[@]}"; do
-  if grep -Fxq "$secret" <<<"$secret_names"; then
-    echo "secret: $secret present"
-  else
-    echo "secret: $secret missing"
-    missing=1
-  fi
-done
+if [[ "$signing_mode" == "signed" ]]; then
+  secret_names="$(gh secret list --repo "$repo" --json name -q '.[].name')"
+  for secret in "${required_secrets[@]}"; do
+    if grep -Fxq "$secret" <<<"$secret_names"; then
+      echo "secret: $secret present"
+    else
+      echo "secret: $secret missing"
+      missing=1
+    fi
+  done
+else
+  echo "Skipping signing secret checks for unsigned release mode."
+fi
 
 if [[ "$missing" -ne 0 ]]; then
   echo "Release prerequisites are incomplete." >&2

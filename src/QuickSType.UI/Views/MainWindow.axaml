@@ -5,41 +5,124 @@
         xmlns:audio="using:QuickSType.Core.Audio"
         x:Class="QuickSType.UI.Views.MainWindow"
         x:DataType="vm:SettingsViewModel"
-        Title="QuickSType"
-        Width="720" Height="640"
-        MinWidth="600" MinHeight="500"
+        Title="QuickSType — Settings"
+        Width="480" Height="620"
+        CanResize="False"
+        Background="{DynamicResource AppWindowBg}"
         WindowStartupLocation="CenterScreen">
 
+  <Window.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Dark">
+          <!-- macOS dark window background (NSColor.windowBackgroundColor equivalent) -->
+          <SolidColorBrush x:Key="AppWindowBg" Color="#2A2A2A" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="AppWindowBg" Color="#F0F0F0" />
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+      <!-- MDI icon paths (24×24 grid) -->
+      <StreamGeometry x:Key="CogPath">M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z</StreamGeometry>
+      <StreamGeometry x:Key="GlobePath">M17.9,17.39C17.64,16.59 16.89,16 16,16H15V13A1,1 0 0,0 14,12H8V10H10A1,1 0 0,0 11,9V7H13A2,2 0 0,0 15,5V4.59C17.93,5.77 20,8.64 20,12C20,14.08 19.2,15.97 17.9,17.39M11,19.93C7.05,19.44 4,16.08 4,12C4,11.38 4.08,10.78 4.21,10.21L9,15V16A2,2 0 0,0 11,18M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z</StreamGeometry>
+      <StreamGeometry x:Key="MicPath">M12,2A3,3 0 0,1 15,5V11A3,3 0 0,1 12,14A3,3 0 0,1 9,11V5A3,3 0 0,1 12,2M19,11C19,14.53 16.39,17.44 13,17.93V21H11V17.93C7.61,17.44 5,14.53 5,11H7A5,5 0 0,0 12,16A5,5 0 0,0 17,11H19Z</StreamGeometry>
+      <StreamGeometry x:Key="InfoPath">M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z</StreamGeometry>
+    </ResourceDictionary>
+  </Window.Resources>
+
   <Window.Styles>
+
+    <!-- TabControl: transparent so window bg shows through; no internal separator border -->
+    <Style Selector="TabControl">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0" />
+    </Style>
+
+    <!-- TabItem: pill-shaped selector matching macOS toolbar style -->
     <Style Selector="TabItem">
+      <Setter Property="Cursor" Value="Hand" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
-      <Setter Property="MinWidth" Value="120" />
-      <Setter Property="Padding" Value="20,8" />
-      <Setter Property="FontSize" Value="14" />
+      <Setter Property="MinWidth" Value="96" />
+      <Setter Property="Padding" Value="12,8" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Name="PART_LayoutRoot"
+                  Background="Transparent"
+                  BorderBrush="Transparent"
+                  BorderThickness="1.5"
+                  CornerRadius="8"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter Name="PART_ContentPresenter"
+                              Content="{TemplateBinding Header}"
+                              ContentTemplate="{TemplateBinding HeaderTemplate}"
+                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                              TextElement.FontSize="{TemplateBinding FontSize}"
+                              TextElement.FontWeight="{TemplateBinding FontWeight}"
+                              TextElement.Foreground="{TemplateBinding Foreground}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
     </Style>
+
+    <!-- Selected tab: accent-coloured border pill + accent foreground (icon inherits) -->
+    <Style Selector="TabItem:selected">
+      <Setter Property="Foreground" Value="{DynamicResource SystemAccentColor}" />
+    </Style>
+    <Style Selector="TabItem:selected /template/ Border#PART_LayoutRoot">
+      <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColor}" />
+    </Style>
+
+    <!-- Hover on non-selected tab: subtle highlight -->
+    <Style Selector="TabItem:pointerover:not(:selected) /template/ Border#PART_LayoutRoot">
+      <Setter Property="Background" Value="{DynamicResource SystemControlHighlightListLowBrush}" />
+    </Style>
+
+    <!-- Tab header icon + label sizes -->
+    <Style Selector="PathIcon.tab-icon">
+      <Setter Property="Width" Value="22" />
+      <Setter Property="Height" Value="22" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.tab-label">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Content typography -->
     <Style Selector="TextBlock.h1">
-      <Setter Property="FontSize" Value="20" />
+      <Setter Property="FontSize" Value="18" />
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="Margin" Value="0,0,0,4" />
     </Style>
     <Style Selector="TextBlock.h2">
-      <Setter Property="FontSize" Value="14" />
+      <Setter Property="FontSize" Value="13" />
       <Setter Property="FontWeight" Value="SemiBold" />
-      <Setter Property="Margin" Value="0,12,0,4" />
+      <Setter Property="Margin" Value="0,10,0,4" />
     </Style>
     <Style Selector="TextBlock.muted">
       <Setter Property="Opacity" Value="0.65" />
       <Setter Property="FontSize" Value="12" />
       <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
+
   </Window.Styles>
 
   <TabControl Name="MainTabs" TabStripPlacement="Top" Padding="0">
 
-    <TabItem Header="General" Name="TabGeneral">
-      <ScrollViewer Padding="32,24">
-        <StackPanel Spacing="20" MaxWidth="560" HorizontalAlignment="Stretch">
+    <TabItem Name="TabGeneral">
+      <TabItem.Header>
+        <StackPanel HorizontalAlignment="Center" Spacing="4">
+          <PathIcon Classes="tab-icon" Data="{StaticResource CogPath}" />
+          <TextBlock Classes="tab-label" Text="General" />
+        </StackPanel>
+      </TabItem.Header>
+      <ScrollViewer>
+        <StackPanel Spacing="16" MaxWidth="420" HorizontalAlignment="Stretch" Margin="24,20">
 
           <TextBlock Classes="h1" Text="General" />
           <TextBlock Classes="muted" Text="Hotkey, microphone, transcription engine, and startup behaviour." />
@@ -101,6 +184,7 @@
 
           <StackPanel Spacing="6">
             <TextBlock Classes="h2" Text="Streaming mode" />
+            <TextBlock Classes="muted" Text="Choose when QuickSType turns speech into text." />
             <ComboBox ItemsSource="{Binding StreamingModes}"
                       SelectedValue="{Binding StreamingMode}"
                       SelectedValueBinding="{Binding Value}"
@@ -112,7 +196,10 @@
               </ComboBox.ItemTemplate>
             </ComboBox>
             <Button Content="Save mode" Command="{Binding SaveModeCommand}" HorizontalAlignment="Left" />
-            <TextBlock Classes="muted" Text="Auto starts streaming if your hardware supports it and falls back automatically. Always stream ignores the hardware check. Commit on pause decodes only when you release the hotkey." />
+            <TextBlock Classes="muted" Text="Auto uses live transcription when your hardware supports it. After release only waits until you let go of the hotkey." />
+            <CheckBox Content="Type live text while speaking"
+                      IsChecked="{Binding EnableStreamingInsertion}" />
+            <TextBlock Classes="muted" Text="Turn this off if you want live transcription internally, but only paste the final text after release." />
           </StackPanel>
 
           <StackPanel Spacing="6">
@@ -131,22 +218,32 @@
                       Command="{Binding ToggleStartAtLoginCommand}" />
           </StackPanel>
 
-          <StackPanel Spacing="6">
+          <StackPanel Spacing="8">
             <TextBlock Classes="h2" Text="Test transcription" />
-            <Button Content="Record 3 s and transcribe" Command="{Binding TestTranscriptionCommand}"
-                    IsEnabled="{Binding !IsTesting}" HorizontalAlignment="Left" />
-            <Border Background="{DynamicResource SystemAltLowColor}" Padding="12" CornerRadius="4" MinHeight="48">
-              <TextBlock Text="{Binding TestTranscriptionResult}" TextWrapping="Wrap" />
+            <Border Background="{DynamicResource SystemAltLowColor}"
+                    BorderBrush="{DynamicResource SystemBaseLowColor}"
+                    BorderThickness="1"
+                    Padding="12" CornerRadius="4" MinHeight="48">
+              <TextBlock Text="{Binding TestTranscriptionResult}"
+                         TextWrapping="Wrap" />
             </Border>
+            <Button Content="Record 3 s and transcribe" Command="{Binding TestTranscriptionCommand}"
+                    HorizontalAlignment="Left" />
           </StackPanel>
 
         </StackPanel>
       </ScrollViewer>
     </TabItem>
 
-    <TabItem Header="Languages" Name="TabLanguages">
-      <ScrollViewer Padding="32,24">
-        <StackPanel Spacing="16" MaxWidth="560">
+    <TabItem Name="TabLanguages">
+      <TabItem.Header>
+        <StackPanel HorizontalAlignment="Center" Spacing="4">
+          <PathIcon Classes="tab-icon" Data="{StaticResource GlobePath}" />
+          <TextBlock Classes="tab-label" Text="Languages" />
+        </StackPanel>
+      </TabItem.Header>
+      <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="14" MaxWidth="420" HorizontalAlignment="Stretch" Margin="24,20">
 
           <TextBlock Classes="h1" Text="Languages" />
           <TextBlock Classes="muted"
@@ -159,10 +256,13 @@
           </Border>
 
           <Border Background="{DynamicResource SystemAltLowColor}" CornerRadius="6" Padding="12,8">
-            <StackPanel Orientation="Horizontal" Spacing="8">
+            <Grid ColumnDefinitions="Auto,*">
               <TextBlock Text="Currently active:" FontWeight="SemiBold" />
-              <TextBlock Text="{Binding ActiveLanguageDisplay}" />
-            </StackPanel>
+              <TextBlock Grid.Column="1"
+                         Text="{Binding ActiveLanguageDisplay}"
+                         TextWrapping="Wrap"
+                         Margin="8,0,0,0" />
+            </Grid>
           </Border>
 
           <TextBlock Classes="h2" Text="Show in tray menu" />
@@ -170,7 +270,22 @@
           <ItemsControl ItemsSource="{Binding AvailableLanguages}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:LanguageRow">
-                <CheckBox Content="{Binding Label}" IsChecked="{Binding IsEnabled}" Margin="0,2" />
+                <DockPanel Margin="0,3" LastChildFill="False">
+                  <Button DockPanel.Dock="Right"
+                          Content="⚙"
+                          FontSize="14"
+                          Padding="6,2"
+                          VerticalAlignment="Center"
+                          Command="{Binding OpenModelPickerCommand}"
+                          IsVisible="{Binding IsEnabled}" />
+                  <CheckBox IsChecked="{Binding IsEnabled}"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Label}"
+                               TextWrapping="Wrap"
+                               MaxWidth="340" />
+                  </CheckBox>
+                </DockPanel>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
@@ -179,16 +294,25 @@
       </ScrollViewer>
     </TabItem>
 
-    <TabItem Header="Models" Name="TabModels">
-      <ScrollViewer Padding="32,24">
-        <StackPanel Spacing="16" MaxWidth="560">
+    <TabItem Name="TabModels">
+      <TabItem.Header>
+        <StackPanel HorizontalAlignment="Center" Spacing="4">
+          <PathIcon Classes="tab-icon" Data="{StaticResource MicPath}" />
+          <TextBlock Classes="tab-label" Text="Models" />
+        </StackPanel>
+      </TabItem.Header>
+      <ScrollViewer>
+        <StackPanel Spacing="0" MaxWidth="420" Margin="24,20">
 
           <TextBlock Classes="h1" Text="Whisper models" />
-          <TextBlock Classes="muted" Text="QuickSType uses whisper.cpp ggml models. Download a model before recording. The Q5 turbo variant is a good balance of size, speed, and accuracy." />
+          <TextBlock Classes="muted" Margin="0,4,0,20"
+                     Text="Configure a default model and per-language overrides." />
 
+          <!-- First-run banner -->
           <Border Background="{DynamicResource SystemAltLowColor}"
                   CornerRadius="6"
                   Padding="16,12"
+                  Margin="0,0,0,16"
                   IsVisible="{Binding IsFirstRun}">
             <StackPanel Spacing="8">
               <TextBlock Classes="h1" Text="Pick a model to get started" />
@@ -197,13 +321,18 @@
             </StackPanel>
           </Border>
 
+          <!-- ── SECTION: General model ────────────────────────── -->
+          <TextBlock FontWeight="SemiBold" FontSize="14" Text="General model" Margin="0,0,0,2" />
+          <TextBlock Classes="muted" Margin="0,0,0,8" Text="Default fallback for any language." />
+
           <ComboBox ItemsSource="{Binding AvailableModels}"
                     SelectedValue="{Binding SelectedModel}"
                     SelectedValueBinding="{Binding Model.Id}"
-                    HorizontalAlignment="Stretch">
+                    HorizontalAlignment="Stretch"
+                    Margin="0,0,0,6">
             <ComboBox.ItemTemplate>
               <DataTemplate x:DataType="vm:ModelRowViewModel">
-                <StackPanel>
+                <StackPanel Spacing="2">
                   <TextBlock Text="{Binding Model.DisplayName}" FontWeight="SemiBold" />
                   <TextBlock Text="{Binding Model.Description}" Opacity="0.7" FontSize="12" />
                   <TextBlock Text="{Binding HardwareWarning}"
@@ -215,31 +344,117 @@
               </DataTemplate>
             </ComboBox.ItemTemplate>
           </ComboBox>
+          <ProgressBar Value="{Binding ModelDownloadPercent}" Maximum="100" Height="4" Margin="0,4,0,2"
+                       IsVisible="{Binding IsDownloadingGeneralModel}" />
+          <TextBlock Text="{Binding ModelDownloadStatus}" FontSize="11" Opacity="0.7" Margin="0,0,0,16"
+                     IsVisible="{Binding ModelDownloadStatus,
+                                 Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
 
-          <StackPanel Orientation="Horizontal" Spacing="12">
-            <Button Content="Save selection" Command="{Binding SaveModelCommand}" />
-            <Button Content="Download" Command="{Binding DownloadSelectedModelCommand}" Classes="accent" />
-          </StackPanel>
+          <!-- ── SECTION: Per-language model rows ──────────────── -->
+          <ItemsControl ItemsSource="{Binding LanguageModelRows}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:PerLanguageModelRow">
+                <StackPanel Spacing="4" Margin="0,0,0,16">
 
-          <ProgressBar Value="{Binding ModelDownloadPercent}" Maximum="100" Height="6" />
-          <TextBlock Text="{Binding ModelDownloadStatus}" FontSize="11" Opacity="0.7" />
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="ᵀA" FontSize="14" Opacity="0.65" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding HeadingText}"
+                               FontWeight="SemiBold"
+                               FontSize="14"
+                               VerticalAlignment="Center" />
+                  </StackPanel>
+                  <TextBlock Text="{Binding SubtitleText}" Classes="muted" Margin="0,0,0,4" />
 
-          <Border BorderBrush="{DynamicResource SystemBaseLowColor}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,16,0,0">
-            <StackPanel Spacing="4">
-              <TextBlock Text="Currently selected" FontWeight="SemiBold" />
-              <TextBlock Text="{Binding SelectedModel}" Opacity="0.8" />
-            </StackPanel>
-          </Border>
+                  <ComboBox ItemsSource="{Binding Options}"
+                            SelectedItem="{Binding SelectedOption}"
+                            HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:LanguageModelOption">
+                        <TextBlock Text="{Binding DisplayName}" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+
+                  <ProgressBar Value="{Binding DownloadPercent}"
+                               Maximum="100"
+                               Height="4"
+                               Margin="0,4,0,0"
+                               IsVisible="{Binding IsDownloading}" />
+                  <TextBlock Text="{Binding DownloadStatus}"
+                             FontSize="11"
+                             Opacity="0.7"
+                             IsVisible="{Binding IsDownloading}" />
+
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <!-- ── DIVIDER ─────────────────────────────────────────── -->
+          <Border Height="1" Background="{DynamicResource SystemBaseLowColor}" Margin="0,4,0,16" />
+
+          <!-- ── SECTION: Downloaded models ─────────────────────── -->
+          <DockPanel LastChildFill="False" Margin="0,0,0,4">
+            <TextBlock Text="Downloaded models"
+                       FontWeight="SemiBold"
+                       FontSize="14"
+                       VerticalAlignment="Center" />
+            <TextBlock Text="{Binding DownloadedCountText}"
+                       Opacity="0.55"
+                       FontSize="13"
+                       VerticalAlignment="Center"
+                       DockPanel.Dock="Right" />
+          </DockPanel>
+          <TextBlock Classes="muted" Margin="0,0,0,10"
+                     Text="Manage your downloaded Whisper models." />
+
+          <ItemsControl ItemsSource="{Binding DownloadedModels}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:DownloadedModelRow">
+                <Border Background="{DynamicResource SystemAltLowColor}"
+                        BorderBrush="{DynamicResource SystemBaseLowColor}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="14,10"
+                        Margin="0,0,0,6">
+                  <DockPanel LastChildFill="True">
+                    <Button DockPanel.Dock="Right"
+                            Content="🗑"
+                            FontSize="13"
+                            Padding="8,4"
+                            VerticalAlignment="Center"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Command="{Binding DeleteCommand}" />
+                    <StackPanel Spacing="2" VerticalAlignment="Center">
+                      <TextBlock Text="{Binding Model.Id}"
+                                 FontWeight="SemiBold"
+                                 FontSize="13" />
+                      <TextBlock Text="{Binding SizeDisplay}"
+                                 Opacity="0.6"
+                                 FontSize="12" />
+                    </StackPanel>
+                  </DockPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
 
         </StackPanel>
       </ScrollViewer>
     </TabItem>
 
-    <TabItem Header="About" Name="TabAbout">
-      <ScrollViewer Padding="32,32">
-        <StackPanel Spacing="14" MaxWidth="520" HorizontalAlignment="Center">
+    <TabItem Name="TabAbout">
+      <TabItem.Header>
+        <StackPanel HorizontalAlignment="Center" Spacing="4">
+          <PathIcon Classes="tab-icon" Data="{StaticResource InfoPath}" />
+          <TextBlock Classes="tab-label" Text="About" />
+        </StackPanel>
+      </TabItem.Header>
+      <ScrollViewer>
+        <StackPanel Spacing="12" MaxWidth="420" HorizontalAlignment="Center" Margin="24,20">
 
-          <TextBlock Text="QuickSType" FontSize="28" FontWeight="SemiBold" HorizontalAlignment="Center" />
+          <TextBlock Text="QuickSType" FontSize="24" FontWeight="SemiBold" HorizontalAlignment="Center" />
           <TextBlock Text="{Binding CurrentVersionText}" HorizontalAlignment="Center" Opacity="0.7" />
 
           <Border Height="1" Background="{DynamicResource SystemBaseLowColor}" Margin="0,8" />

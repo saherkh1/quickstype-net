@@ -17,6 +17,15 @@ public sealed class WaveformControl : Control
     private float _incomingLevel;
     private readonly object _levelLock = new();
 
+    public static readonly StyledProperty<bool> IsActiveProperty =
+        AvaloniaProperty.Register<WaveformControl, bool>(nameof(IsActive));
+
+    public bool IsActive
+    {
+        get => GetValue(IsActiveProperty);
+        set => SetValue(IsActiveProperty, value);
+    }
+
     // Pre-allocated brushes — never new on render tick
     private SolidColorBrush _fillBrush = new(Colors.Gray);
 
@@ -44,12 +53,19 @@ public sealed class WaveformControl : Control
 
     /// <summary>
     /// Push the current audio RMS level (0.0-1.0). Thread-safe; called from audio callback thread.
+    /// Applies a perceptual remap: raw RMS for typical speech is ~0.02-0.10, which would map to
+    /// invisible 1-5px bars at 50px height. sqrt-gain expands that range so speech visibly drives
+    /// the meter while silence still reads as flat.
     /// </summary>
     public void PushLevel(float rmsLevel)
     {
+        var clamped = Math.Clamp(rmsLevel, 0f, 1f);
+        var display = MathF.Min(1f, MathF.Sqrt(clamped) * VisualGain);
         lock (_levelLock)
-            _incomingLevel = Math.Clamp(rmsLevel, 0f, 1f);
+            _incomingLevel = display;
     }
+
+    private const float VisualGain = 2.5f;
 
     private void UpdateBrush()
     {

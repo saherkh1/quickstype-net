@@ -31,14 +31,24 @@ if grep -Eq '^- \[ \]' "$evidence"; then
 fi
 
 required_signoffs=(
-  '- [x] macOS package signing identity matches expected Developer ID Application/Installer identities.'
-  '- [x] macOS notarization and stapler validation passed in the release workflow.'
-  '- [x] Windows Azure Artifact Signing completed for publish directory and installer.'
   "- [x] \`tests/manual/UPDATE_CANARY_MATRIX.md\` rows updated with PASS status plus tester/date/notes evidence."
   "- [x] \`tests/manual/INJECTION_MATRIX.md\` rows updated with PASS status plus tester/date/notes evidence."
   "- [x] \`tests/manual/TELEMETRY_MATRIX.md\` rows updated with PASS status plus tester/date/notes evidence."
   '- [x] Homebrew and Winget manifest generators use the exact URLs and SHA-256 values above.'
 )
+
+if grep -Fxq '| Signing mode | unsigned |' "$evidence"; then
+  required_signoffs+=(
+    '- [x] Release owner accepts this is an unsigned first shipment; macOS Gatekeeper and Windows SmartScreen warnings are expected until signing is added.'
+    '- [x] Release notes clearly label the macOS and Windows artifacts as unsigned.'
+  )
+else
+  required_signoffs+=(
+    '- [x] macOS package signing identity matches expected Developer ID Application/Installer identities.'
+    '- [x] macOS notarization and stapler validation passed in the release workflow.'
+    '- [x] Windows Azure Artifact Signing completed for publish directory and installer.'
+  )
+fi
 
 for required_signoff in "${required_signoffs[@]}"; do
   if ! grep -Fxq -- "$required_signoff" "$evidence"; then

@@ -22,6 +22,12 @@ if [[ "$channel" != "canary" && "$channel" != "stable" ]]; then
   exit 64
 fi
 
+signing_mode="${QUICKSTYPE_RELEASE_SIGNING_MODE:-unsigned}"
+if [[ "$signing_mode" != "signed" && "$signing_mode" != "unsigned" ]]; then
+  echo "QUICKSTYPE_RELEASE_SIGNING_MODE must be signed or unsigned: $signing_mode" >&2
+  exit 64
+fi
+
 if [[ -z "$repo" ]]; then
   repo="$(gh repo view --json nameWithOwner -q .nameWithOwner)"
 fi
@@ -31,7 +37,7 @@ if [[ -n "$(git status --porcelain)" ]]; then
   exit 1
 fi
 
-bash "$(dirname "$0")/check-release-prereqs.sh" "$repo"
+QUICKSTYPE_RELEASE_SIGNING_MODE="$signing_mode" bash "$(dirname "$0")/check-release-prereqs.sh" "$repo"
 
 branch="$(git branch --show-current)"
 head_sha="$(git rev-parse HEAD)"
@@ -43,13 +49,14 @@ if [[ "$head_sha" != "$remote_sha" ]]; then
   exit 1
 fi
 
-echo "Dispatching release workflow for $repo version=$version channel=$channel"
+echo "Dispatching release workflow for $repo version=$version channel=$channel signing_mode=$signing_mode"
 dispatch_started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 gh workflow run release.yml \
   --repo "$repo" \
   --ref "$branch" \
   -f "version=$version" \
-  -f "channel=$channel"
+  -f "channel=$channel" \
+  -f "signing_mode=$signing_mode"
 
 echo "Waiting for release workflow run to appear..."
 run_id=""

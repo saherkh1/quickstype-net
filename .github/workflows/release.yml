@@ -18,6 +18,14 @@ on:
         options:
           - canary
           - stable
+      signing_mode:
+        description: Release signing mode
+        required: true
+        default: unsigned
+        type: choice
+        options:
+          - unsigned
+          - signed
 
 permissions:
   contents: write
@@ -32,7 +40,7 @@ env:
 jobs:
   macos:
     runs-on: macos-14
-    name: macOS signed/notarized release
+    name: macOS release
     steps:
       - uses: actions/checkout@v6
 
@@ -45,11 +53,13 @@ jobs:
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             VERSION="${{ inputs.version }}"
             CHANNEL="${{ inputs.channel }}"
+            SIGNING_MODE="${{ inputs.signing_mode }}"
             TAG="v${VERSION}"
           else
             TAG="${GITHUB_REF_NAME}"
             VERSION="${TAG#v}"
             CHANNEL="canary"
+            SIGNING_MODE="unsigned"
           fi
           case "$CHANNEL" in
             canary|stable) ;;
@@ -58,13 +68,22 @@ jobs:
               exit 64
               ;;
           esac
+          case "$SIGNING_MODE" in
+            unsigned|signed) ;;
+            *)
+              echo "Unsupported signing mode: $SIGNING_MODE" >&2
+              exit 64
+              ;;
+          esac
           {
             echo "VERSION=$VERSION"
             echo "CHANNEL=$CHANNEL"
+            echo "SIGNING_MODE=$SIGNING_MODE"
             echo "TAG=$TAG"
           } >> "$GITHUB_ENV"
 
       - name: Verify Apple signing secrets
+        if: env.SIGNING_MODE == 'signed'
         shell: bash
         env:
           APP_CERT: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_P12_BASE64 }}
@@ -91,6 +110,7 @@ jobs:
         run: dotnet tool install --tool-path .tools vpk --version "$VPK_VERSION"
 
       - name: Import Apple Developer ID certificates
+        if: env.SIGNING_MODE == 'signed'
         shell: bash
         env:
           APP_CERT: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_P12_BASE64 }}
@@ -115,6 +135,7 @@ jobs:
           security find-identity -v -p codesigning "$KEYCHAIN_PATH"
 
       - name: Store notarytool profile
+        if: env.SIGNING_MODE == 'signed'
         shell: bash
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -144,13 +165,14 @@ jobs:
             -o "artifacts/publish/osx-arm64/$VERSION" \
             --nologo
 
-      - name: Velopack pack, sign, notarize, and staple macOS
+      - name: Velopack pack macOS
         shell: bash
         env:
           APP_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_IDENTITY }}
           INSTALLER_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_INSTALLER_IDENTITY }}
         run: |
-          .tools/vpk pack \
+          pack_args=(
+            pack
             --packId "$PACK_ID" \
             --packTitle "$PACK_TITLE" \
             --packVersion "$VERSION" \
@@ -161,13 +183,23 @@ jobs:
             --outputDir "artifacts/velopack/osx-arm64/$VERSION" \
             --bundleId com.saherk.quickstype \
             --plist build/Info.plist \
-            --signEntitlements build/QuickSType.entitlements \
-            --signAppIdentity "$APP_IDENTITY" \
-            --signInstallIdentity "$INSTALLER_IDENTITY" \
-            --notaryProfile quickstype-notary \
-            --keychain "$KEYCHAIN_PATH" \
             --yes
-          xcrun stapler validate "artifacts/velopack/osx-arm64/$VERSION/QuickSType-$CHANNEL-Setup.pkg"
+          )
+          if [[ "$SIGNING_MODE" == "signed" ]]; then
+            pack_args+=(
+              --signEntitlements build/QuickSType.entitlements
+              --signAppIdentity "$APP_IDENTITY"
+              --signInstallIdentity "$INSTALLER_IDENTITY"
+              --notaryProfile quickstype-notary
+              --keychain "$KEYCHAIN_PATH"
+            )
+          fi
+          .tools/vpk "${pack_args[@]}"
+          if [[ "$SIGNING_MODE" == "signed" ]]; then
+            xcrun stapler validate "artifacts/velopack/osx-arm64/$VERSION/QuickSType-$CHANNEL-Setup.pkg"
+          else
+            echo "Unsigned macOS package created; Gatekeeper will warn until the app is Developer ID signed and notarized."
+          fi
 
       - name: Upload macOS releases to GitHub Release
         shell: bash
@@ -198,7 +230,7 @@ jobs:
 
   windows:
     runs-on: windows-2022
-    name: Windows signed release
+    name: Windows release
     steps:
       - uses: actions/checkout@v6
 
@@ -210,19 +242,30 @@ jobs:
           if ("${{ github.event_name }}" -eq "workflow_dispatch") {
             "VERSION=${{ inputs.version }}" | Out-File -FilePath $env:GITHUB_ENV -Append
             "CHANNEL=${{ inputs.channel }}" | Out-File -FilePath $env:GITHUB_ENV -Append
+            "SIGNING_MODE=${{ inputs.signing_mode }}" | Out-File -FilePath $env:GITHUB_ENV -Append
             "TAG=v${{ inputs.version }}" | Out-File -FilePath $env:GITHUB_ENV -Append
           } else {
             $tag = "${env:GITHUB_REF_NAME}"
             "VERSION=$($tag.TrimStart('v'))" | Out-File -FilePath $env:GITHUB_ENV -Append
             "CHANNEL=canary" | Out-File -FilePath $env:GITHUB_ENV -Append
+            "SIGNING_MODE=unsigned" | Out-File -FilePath $env:GITHUB_ENV -Append
             "TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append
           }
           $channel = if ("${{ github.event_name }}" -eq "workflow_dispatch") { "${{ inputs.channel }}" } else { "canary" }
           if ($channel -notin @("canary", "stable")) {
             throw "Unsupported release channel: $channel"
           }
+          $signingMode = if ("${{ github.event_name }}" -eq "workflow_dispatch") { "${{ inputs.signing_mode }}" } else { "unsigned" }
+          if ($signingMode -notin @("unsigned", "signed")) {
+            throw "Unsupported signing mode: $signingMode"
+          }
 
-      - name: Verify Azure Artifact Signing inputs
+      - name: Install Velopack CLI
+        shell: pwsh
+        run: dotnet tool install --tool-path .tools vpk --version $env:VPK_VERSION
+
+      - name: Verify Azure Artifact Signing secrets
+        if: env.SIGNING_MODE == 'signed'
         shell: pwsh
         env:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
@@ -242,20 +285,9 @@ jobs:
           )
           foreach ($name in $required) {
             if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
-              throw "Missing required Azure signing secret: $name"
+              throw "Missing required Azure Artifact Signing secret: $name"
             }
           }
-
-      - name: Azure login
-        uses: azure/login@v3
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Install Velopack CLI
-        shell: pwsh
-        run: dotnet tool install --tool-path .tools vpk --version $env:VPK_VERSION
 
       - name: Test
         run: dotnet test QuickSType.sln --nologo -v minimal
@@ -273,21 +305,6 @@ jobs:
             -o "artifacts/publish/win-x64/$env:VERSION" `
             --nologo
 
-      - name: Sign published Windows binaries
-        uses: azure/artifact-signing-action@v1
-        with:
-          endpoint: ${{ secrets.AZURE_ARTIFACT_SIGNING_ENDPOINT }}
-          signing-account-name: ${{ secrets.AZURE_ARTIFACT_SIGNING_ACCOUNT }}
-          certificate-profile-name: ${{ secrets.AZURE_ARTIFACT_SIGNING_CERT_PROFILE }}
-          files-folder: ${{ github.workspace }}\artifacts\publish\win-x64
-          files-folder-filter: exe,dll
-          files-folder-recurse: true
-          file-digest: SHA256
-          timestamp-rfc3161: http://timestamp.acs.microsoft.com
-          timestamp-digest: SHA256
-          description: QuickSType
-          description-url: https://github.com/${{ github.repository }}
-
       - name: Velopack pack Windows
         shell: pwsh
         run: |
@@ -301,21 +318,6 @@ jobs:
             --mainExe QuickSType.exe `
             --outputDir "artifacts/velopack/win-x64/$env:VERSION" `
             --yes
-
-      - name: Sign Windows installer
-        uses: azure/artifact-signing-action@v1
-        with:
-          endpoint: ${{ secrets.AZURE_ARTIFACT_SIGNING_ENDPOINT }}
-          signing-account-name: ${{ secrets.AZURE_ARTIFACT_SIGNING_ACCOUNT }}
-          certificate-profile-name: ${{ secrets.AZURE_ARTIFACT_SIGNING_CERT_PROFILE }}
-          files-folder: ${{ github.workspace }}\artifacts\velopack\win-x64
-          files-folder-filter: exe
-          files-folder-recurse: true
-          file-digest: SHA256
-          timestamp-rfc3161: http://timestamp.acs.microsoft.com
-          timestamp-digest: SHA256
-          description: QuickSType
-          description-url: https://github.com/${{ github.repository }}
 
       - name: Upload Windows releases to GitHub Release
         shell: pwsh

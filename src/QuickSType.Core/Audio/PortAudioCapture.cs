@@ -1,4 +1,3 @@
-using System.Buffers;
 using System.Collections.Concurrent;
 using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
@@ -27,6 +26,9 @@ public sealed class PortAudioCapture : IAudioCapture
     public int Channels { get; }
     public bool IsRecording => _isRecording;
     public ChannelReader<ReadOnlyMemory<float>>? Frames => _channel?.Reader;
+
+    /// <inheritdoc />
+    public event Action<float>? LevelChanged;
 
     public PortAudioCapture(ILogger<PortAudioCapture>? log = null, int sampleRate = 16000, int channels = 1)
     {
@@ -137,6 +139,11 @@ public sealed class PortAudioCapture : IAudioCapture
         }
 
         _channel = null;
+
+        // Flatten subscribers' visuals immediately on teardown.
+        try { LevelChanged?.Invoke(0f); }
+        catch (Exception ex) { _log.LogDebug(ex, "LevelChanged(0) on Stop threw"); }
+
         return DrainChunks();
     }
 
@@ -174,16 +181,24 @@ public sealed class PortAudioCapture : IAudioCapture
         }
         _chunks.Enqueue(legacy);
 
-        // Rent a pooled buffer for the streaming channel.
-        var rented = ArrayPool<float>.Shared.Rent(totalSamples);
-        legacy.CopyTo(rented, 0);
-        var slice = new ReadOnlyMemory<float>(rented, 0, totalSamples);
-        if (_channel is not null && !_channel.Writer.TryWrite(slice))
+        // Compute normalised RMS for this buffer and fan out to subscribers.
+        // Audio-thread discipline: must never throw, never block. No allocations in this path
+        // (legacy is the buffer we just filled; AudioLevelCalculator is allocation-free).
+        try
         {
-            // TryWrite returns false when the channel is full (DropOldest handles oldest);
-            // still need to return the rented buffer since no consumer will own it.
-            ArrayPool<float>.Shared.Return(rented);
+            var level = AudioLevelCalculator.ComputeNormalisedRms(legacy);
+            LevelChanged?.Invoke(level);
         }
+        catch (Exception ex)
+        {
+            // Never let a subscriber exception escape the audio callback. Log at Debug only —
+            // this fires per audio buffer (~16/sec), so Warning would spam.
+            _log.LogDebug(ex, "LevelChanged handler threw on audio thread");
+        }
+
+        // The queued array is immutable after this point, so the streaming reader can
+        // observe the same buffer without an extra copy or ArrayPool ownership handoff.
+        _channel?.Writer.TryWrite(new ReadOnlyMemory<float>(legacy, 0, totalSamples));
 
         return StreamCallbackResult.Continue;
     }

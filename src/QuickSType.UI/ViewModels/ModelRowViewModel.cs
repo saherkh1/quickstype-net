@@ -1,20 +1,23 @@
+using CommunityToolkit.Mvvm.ComponentModel;
 using QuickSType.Core.Platform;
 using QuickSType.Core.Transcribe;
 
 namespace QuickSType.UI.ViewModels;
 
-/// <summary>
-/// Wrapper VM that pairs a <see cref="ModelInfo"/> with a precomputed hardware-fit warning
-/// for the Models-tab ComboBox (UI-SPEC S3). HardwareWarning is null when the model fits.
-/// </summary>
-public sealed class ModelRowViewModel
+public sealed partial class ModelRowViewModel : ObservableObject
 {
     public ModelInfo Model { get; }
     public string? HardwareWarning { get; }
+
+    public bool IsInstalled => ModelCatalog.IsInstalled(Model.Id);
+    public bool IsLanguageSpecific => Model.LanguageCode is not null;
+    public string LanguageTag => Model.LanguageCode?.ToUpperInvariant() ?? string.Empty;
 
     public ModelRowViewModel(ModelInfo model, SystemSpecs specs, ISystemSpecsService svc)
     {
         Model = model;
         HardwareWarning = svc.GetHardwareWarning(model, specs);
     }
+
+    public void RefreshInstallStatus() => OnPropertyChanged(nameof(IsInstalled));
 }

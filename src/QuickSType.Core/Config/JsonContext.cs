@@ -11,6 +11,7 @@ namespace QuickSType.Core.Config;
 [JsonSerializable(typeof(QuickSType.Core.Transcribe.ModelManifest))]
 [JsonSerializable(typeof(QuickSType.Core.Transcribe.HallucinationManifest))]
 [JsonSerializable(typeof(QuickSType.Core.History.HistoryEntry))]
+[JsonSerializable(typeof(Dictionary<string, string>))]
 public partial class ConfigJsonContext : JsonSerializerContext
 {
 }

@@ -234,6 +234,7 @@ public sealed class TrayService
                 _stateItem.Header = state switch
                 {
                     DictationState.Idle => "● Idle",
+                    DictationState.LoadingModel => "⏳ Loading model…",
                     DictationState.Recording => "● Recording…",
                     DictationState.Processing => "● Transcribing…",
                     DictationState.Streaming => "● Streaming…",
@@ -244,6 +245,7 @@ public sealed class TrayService
             {
                 _trayIcon.Icon = LoadIcon(state switch
                 {
+                    DictationState.LoadingModel => "recording",
                     DictationState.Recording => "recording",
                     DictationState.Processing => "processing",
                     DictationState.Streaming => "recording",
@@ -321,13 +323,20 @@ public sealed class TrayService
     {
         Dispatcher.UIThread.Post(() =>
         {
+            var trayRect = _host.TrayPosition.GetTrayRect();
+
             if (_mainWindow is null)
             {
                 _mainWindow = new MainWindow(_host, _host.LoggerFactory.CreateLogger<MainWindow>());
                 _mainWindow.Closed += (_, _) => _mainWindow = null;
             }
 
-            if (!_mainWindow.IsVisible) _mainWindow.Show();
+            if (!_mainWindow.IsVisible)
+            {
+                _mainWindow.PositionNearTray(trayRect);
+                _mainWindow.Show();
+            }
+
             if (_mainWindow.WindowState == WindowState.Minimized) _mainWindow.WindowState = WindowState.Normal;
             _mainWindow.NavigateTo(tab);
 

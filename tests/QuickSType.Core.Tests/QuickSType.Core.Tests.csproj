@@ -13,8 +13,13 @@
     <PackageReference Include="Shouldly" Version="4.3.0" />
   </ItemGroup>
 
+  <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+    <DefineConstants>$(DefineConstants);MACOS_PLATFORM</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\QuickSType.Core\QuickSType.Core.csproj" />
+    <ProjectReference Include="..\..\src\QuickSType.Platform.Mac\QuickSType.Platform.Mac.csproj" Condition="$([MSBuild]::IsOSPlatform('OSX'))" />
   </ItemGroup>
 
 </Project>
