@@ -17,7 +17,7 @@ public class AutoDegradeTests
     {
         public event Action? DegradeRequested;
         public void RaiseDegrade() => DegradeRequested?.Invoke();
-        public void EnsureLoaded(string modelPath, bool useGpu = true) { }
+        public void EnsureLoaded(string modelPath, bool useGpu = true, CancellationToken cancellationToken = default) { }
         public async IAsyncEnumerable<TranscriptUpdate> RunAsync(
             ChannelReader<ReadOnlyMemory<float>> frames, int sampleRate, AppConfig config,
             [EnumeratorCancellation] CancellationToken ct = default)

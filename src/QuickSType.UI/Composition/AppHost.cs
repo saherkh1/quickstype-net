@@ -134,7 +134,7 @@ public sealed class AppHost : IDisposable
             if (streamer is StreamingPipeline sp && File.Exists(modelPath))
             {
                 var useGpu = config.TranscriptionBackend != "cpu";
-                try { sp.EnsureLoaded(modelPath, useGpu); }
+                try { sp.EnsureLoaded(modelPath, useGpu, CancellationToken.None); }
                 catch (Exception ex) { lf.CreateLogger<AppHost>().LogWarning(ex, "Streaming pipeline EnsureLoaded failed; falling back at press time"); }
             }
         }

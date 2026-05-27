@@ -31,14 +31,27 @@ public sealed class StreamingPipeline : IStreamingTranscriber
         _log = (ILogger?)log ?? NullLogger.Instance;
     }
 
-    public void EnsureLoaded(string modelPath, bool useGpu = true)
+    public void EnsureLoaded(string modelPath, bool useGpu = true, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         lock (_lock)
         {
             if (_factory is not null && _loadedModelPath == modelPath) return;
-            _factory?.Dispose();
+            cancellationToken.ThrowIfCancellationRequested();
             var options = new WhisperFactoryOptions { UseGpu = useGpu };
-            _factory = WhisperFactory.FromPath(modelPath, options);
+            WhisperFactory? nextFactory = null;
+            try
+            {
+                nextFactory = WhisperFactory.FromPath(modelPath, options);
+                cancellationToken.ThrowIfCancellationRequested();
+                _factory?.Dispose();
+                _factory = nextFactory;
+                nextFactory = null;
+            }
+            finally
+            {
+                nextFactory?.Dispose();
+            }
             _loadedModelPath = modelPath;
             _log.LogInformation("StreamingPipeline loaded Whisper model from {Path}", modelPath);
         }
