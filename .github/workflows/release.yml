@@ -198,8 +198,7 @@ jobs:
 
   windows:
     runs-on: windows-2022
-    name: Windows signed release
-    environment: release
+    name: Windows release
     steps:
       - uses: actions/checkout@v6
 
@@ -223,37 +222,6 @@ jobs:
             throw "Unsupported release channel: $channel"
           }
 
-      - name: Verify Azure Artifact Signing inputs
-        shell: pwsh
-        env:
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          AZURE_ARTIFACT_SIGNING_ENDPOINT: ${{ secrets.AZURE_ARTIFACT_SIGNING_ENDPOINT }}
-          AZURE_ARTIFACT_SIGNING_ACCOUNT: ${{ secrets.AZURE_ARTIFACT_SIGNING_ACCOUNT }}
-          AZURE_ARTIFACT_SIGNING_CERT_PROFILE: ${{ secrets.AZURE_ARTIFACT_SIGNING_CERT_PROFILE }}
-        run: |
-          $required = @(
-            "AZURE_CLIENT_ID",
-            "AZURE_TENANT_ID",
-            "AZURE_SUBSCRIPTION_ID",
-            "AZURE_ARTIFACT_SIGNING_ENDPOINT",
-            "AZURE_ARTIFACT_SIGNING_ACCOUNT",
-            "AZURE_ARTIFACT_SIGNING_CERT_PROFILE"
-          )
-          foreach ($name in $required) {
-            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
-              throw "Missing required Azure signing secret: $name"
-            }
-          }
-
-      - name: Azure login
-        uses: azure/login@v3
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
       - name: Install Velopack CLI
         shell: pwsh
         run: dotnet tool install --tool-path .tools vpk --version $env:VPK_VERSION
@@ -274,21 +242,6 @@ jobs:
             -o "artifacts/publish/win-x64/$env:VERSION" `
             --nologo
 
-      - name: Sign published Windows binaries
-        uses: azure/artifact-signing-action@v1
-        with:
-          endpoint: ${{ secrets.AZURE_ARTIFACT_SIGNING_ENDPOINT }}
-          signing-account-name: ${{ secrets.AZURE_ARTIFACT_SIGNING_ACCOUNT }}
-          certificate-profile-name: ${{ secrets.AZURE_ARTIFACT_SIGNING_CERT_PROFILE }}
-          files-folder: ${{ github.workspace }}\artifacts\publish\win-x64
-          files-folder-filter: exe,dll
-          files-folder-recurse: true
-          file-digest: SHA256
-          timestamp-rfc3161: http://timestamp.acs.microsoft.com
-          timestamp-digest: SHA256
-          description: QuickSType
-          description-url: https://github.com/${{ github.repository }}
-
       - name: Velopack pack Windows
         shell: pwsh
         run: |
@@ -302,21 +255,6 @@ jobs:
             --mainExe QuickSType.exe `
             --outputDir "artifacts/velopack/win-x64/$env:VERSION" `
             --yes
-
-      - name: Sign Windows installer
-        uses: azure/artifact-signing-action@v1
-        with:
-          endpoint: ${{ secrets.AZURE_ARTIFACT_SIGNING_ENDPOINT }}
-          signing-account-name: ${{ secrets.AZURE_ARTIFACT_SIGNING_ACCOUNT }}
-          certificate-profile-name: ${{ secrets.AZURE_ARTIFACT_SIGNING_CERT_PROFILE }}
-          files-folder: ${{ github.workspace }}\artifacts\velopack\win-x64
-          files-folder-filter: exe
-          files-folder-recurse: true
-          file-digest: SHA256
-          timestamp-rfc3161: http://timestamp.acs.microsoft.com
-          timestamp-digest: SHA256
-          description: QuickSType
-          description-url: https://github.com/${{ github.repository }}
 
       - name: Upload Windows releases to GitHub Release
         shell: pwsh
